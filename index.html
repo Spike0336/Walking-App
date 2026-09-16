@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0EA5A0">
+<title>Nigel's Walking Pad</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root{
+    --bg:#F3F4F7; --surface:#FFFFFF; --ink:#15181C; --ink-muted:#6B7280;
+    --brand:#0EA5A0; --brand-dark:#0B8C88; --brand-glow:rgba(14,165,160,.35);
+    --gold:#FFB020; --danger:#EF4444; --danger-glow:rgba(239,68,68,.35); --border:#E7E9EE;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px);
+    display:flex;flex-direction:column;gap:12px;}
+  h1{font-size:19px;font-weight:800;letter-spacing:-.3px;margin:0;text-align:center;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;}
+
+  .footer-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .device-info{display:flex;align-items:center;gap:8px;min-width:0;}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:#C6C9D0;flex:0 0 auto;}
+  .status-dot.connected{background:var(--brand);box-shadow:0 0 0 3px var(--brand-glow);}
+  .device-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  button{font-family:inherit;font-size:13px;font-weight:700;border-radius:10px;border:1px solid var(--border);
+    background:var(--surface);color:var(--ink);padding:9px 14px;cursor:pointer;}
+  button.primary{background:var(--brand);border-color:var(--brand);color:#fff;}
+  #serviceUuidInput{width:100%;font-size:11px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;
+    margin-top:8px;color:var(--ink-muted);}
+  .hint{font-size:11px;color:var(--ink-muted);margin-top:4px;}
+
+  .speed-readout{text-align:center;padding:8px 0 4px;}
+  .speed-value{font-size:76px;font-weight:900;line-height:.9;letter-spacing:-2px;font-variant-numeric:tabular-nums;}
+  .speed-unit{font-size:14px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+  .control-row{display:flex;gap:8px;margin-top:10px;}
+  .control-btn{flex:1;padding:15px 0;border-radius:14px;font-size:16px;font-weight:800;color:#fff;border:none;}
+  .start-btn{background:var(--brand);box-shadow:0 4px 14px var(--brand-glow);}
+  .pause-btn{background:var(--gold);color:#15181C;box-shadow:0 4px 14px rgba(255,176,32,.4);}
+  .stop-btn{background:var(--danger);box-shadow:0 4px 14px var(--danger-glow);}
+
+  .program-info-box{display:none;width:100%;background:#0F172A;color:#fff;padding:12px 14px;
+    border-radius:14px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3);
+    border:2px solid var(--brand);margin-bottom:8px;}
+  .program-title-line{font-size:15px;font-weight:900;color:var(--gold);text-transform:uppercase;letter-spacing:.4px;line-height:1.2;}
+  .program-step-line{font-size:12.5px;font-weight:700;color:#5EEAD4;margin-top:3px;}
+  .program-time-line{font-size:34px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;margin-top:2px;line-height:1;letter-spacing:.5px;}
+  .program-cancel-btn{margin-top:8px;width:100%;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);}
+
+  .chip-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+  .chip{padding:12px 0;text-align:center;font-size:15px;font-weight:800;border-radius:12px;
+    border:1px solid var(--border);background:var(--bg);}
+  .chip.active{background:var(--brand);border-color:var(--brand);color:#fff;}
+  .nudge-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .nudge{padding:10px 0;text-align:center;font-size:16px;font-weight:800;border-radius:12px;
+    border:1px solid var(--border);background:var(--bg);}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .stat-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;}
+  .stat-value{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .stat-label{font-size:10px;color:var(--ink-muted);font-weight:700;margin-top:2px;}
+
+  .card-title{font-weight:700;font-size:13px;margin-bottom:8px;color:var(--ink-muted);
+    text-transform:uppercase;letter-spacing:.03em;}
+  .today-row{display:flex;justify-content:space-around;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--border);}
+  .today-stat{text-align:center;}
+  .today-value{font-size:15px;font-weight:800;}
+  .today-label{font-size:10px;color:var(--ink-muted);font-weight:600;}
+  .history-row{display:flex;justify-content:space-between;padding:6px 0;font-size:12px;border-bottom:1px solid var(--border);}
+  .history-row:last-child{border-bottom:none;}
+  .history-date{font-weight:700;}
+  .history-figs{color:var(--ink-muted);font-size:11px;}
+  .empty-note{color:var(--ink-muted);font-size:12px;text-align:center;padding:8px 0;}
+  .programme-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;
+    border-bottom:1px solid var(--border);}
+  .programme-row:last-child{border-bottom:none;}
+  .programme-name{font-weight:700;font-size:13px;}
+  .programme-meta{font-size:11px;color:var(--ink-muted);}
+  .programme-picker{display:flex;gap:8px;align-items:stretch;}
+  .programme-picker select{flex:1;font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);
+    border-radius:10px;padding:9px 10px;color:var(--ink);background:var(--surface);}
+  .programme-picker-desc{font-size:11px;color:var(--ink-muted);margin-top:6px;}
+  #voiceBtn.active{background:var(--brand);border-color:var(--brand);color:#fff;}
+
+  .video-input-row{display:flex;gap:8px;}
+  .video-input-row input{flex:1;font-family:inherit;font-size:13px;border:1px solid var(--border);
+    border-radius:8px;padding:8px 10px;color:var(--ink);}
+  .video-frame{position:relative;width:100%;aspect-ratio:16/9;background:#0B0C0E;border-radius:12px;
+    overflow:hidden;margin-top:8px;}
+  .video-frame iframe{width:100%;height:100%;border:none;display:block;}
+  .video-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#7A828C;font-size:12px;text-align:center;padding:0 14px;}
+
+  details summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--ink-muted);}
+  #logBox{margin-top:8px;font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--ink-muted);
+    max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nigel's Walking Pad</h1>
+
+  <div class="card footer-bar">
+    <div class="device-info">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="device-name" id="deviceName">Not connected</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button id="voiceBtn">Voice: Off</button>
+      <button class="primary" id="connectBtn">Connect</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="speed-readout">
+      <div id="programInfoBox" class="program-info-box">
+        <div id="programTitleLine" class="program-title-line">Programme</div>
+        <div id="programStepLine" class="program-step-line">Step</div>
+        <div id="programTimeLine" class="program-time-line">00:00</div>
+        <button class="program-cancel-btn" id="cancelProgrammeBtn">Cancel programme</button>
+      </div>
+      <div class="speed-value" id="speedValue">0.0</div>
+      <div class="speed-unit">km/h</div>
+    </div>
+    <div class="control-row">
+      <button class="control-btn start-btn" id="startBtn">Start</button>
+      <button class="control-btn pause-btn" id="pauseBtn">Pause</button>
+      <button class="control-btn stop-btn" id="stopBtn">Stop</button>
+    </div>
+    <div class="chip-grid">
+      <div class="chip" data-speed="1">1</div>
+      <div class="chip" data-speed="2">2</div>
+      <div class="chip" data-speed="3">3</div>
+      <div class="chip" data-speed="4">4</div>
+      <div class="chip" data-speed="5">5</div>
+      <div class="chip" data-speed="6">6</div>
+      <div class="chip" data-speed="7">7</div>
+      <div class="chip" data-speed="8">8</div>
+    </div>
+    <div class="nudge-row">
+      <div class="nudge" id="nudgeDown">&minus; 0.5</div>
+      <div class="nudge" id="nudgeUp">+ 0.5</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value" id="statTime">00:00</div><div class="stat-label">Time</div></div>
+      <div class="stat-card"><div class="stat-value" id="statDistance">0.00 km</div><div class="stat-label">Distance</div></div>
+      <div class="stat-card"><div class="stat-value" id="statCalories">0</div><div class="stat-label">Calories</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Today &amp; recent days</div>
+    <div class="today-row">
+      <div class="today-stat"><div class="today-value" id="todayDistance">0.00 km</div><div class="today-label">Today</div></div>
+      <div class="today-stat"><div class="today-value" id="todayTime">00:00</div><div class="today-label">Time</div></div>
+      <div class="today-stat"><div class="today-value" id="todayCalories">0</div><div class="today-label">Calories</div></div>
+    </div>
+    <div id="historyList"></div>
+    <div style="margin-top:10px;text-align:center;">
+      <button id="dashboardBtn">Open full dashboard &amp; charts &rarr;</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Programmes</div>
+    <div class="programme-picker">
+      <select id="programmeSelect"></select>
+      <button class="primary" id="startSelectedProgrammeBtn">Start</button>
+    </div>
+    <div class="programme-picker-desc" id="programmeSelectDesc"></div>
+    <div id="programmeList"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Watch while you walk</div>
+    <div class="video-input-row">
+      <input type="text" id="videoUrlInput" placeholder="Paste a YouTube link">
+      <button id="loadVideoBtn">Load</button>
+    </div>
+    <div class="video-frame" id="videoFrame">
+      <div class="video-placeholder">Paste a YouTube link above</div>
+    </div>
+  </div>
+
+  <details class="card">
+    <summary>Connection troubleshooting</summary>
+    <div class="hint">
+      If Connect doesn't find your pad's controls, get its real BLE service UUID
+      with a scanner app (e.g. "nRF Connect" on the Play Store) and paste it
+      here, comma-separated if there's more than one, then try Connect again.
+    </div>
+    <input type="text" id="serviceUuidInput" placeholder="e.g. 0000ffe0-0000-1000-8000-00805f9b34fb">
+    <div class="hint" style="margin-top:10px;">Activity log:</div>
+    <div id="logBox"></div>
+  </details>
+</div>
+
+<script src="protocol.js"></script>
+<script src="programmes.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>

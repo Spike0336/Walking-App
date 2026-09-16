@@ -1,0 +1,228 @@
+{
+  "sessions": [
+    {
+      "date": "2026-09-13",
+      "distance_m": 40,
+      "calories": 2.4,
+      "duration_s": 53,
+      "avg_speed_kmh": 2.72,
+      "ended_at": "2026-09-13T16:38:00"
+    },
+    {
+      "date": "2026-09-13",
+      "distance_m": 90,
+      "calories": 5.8,
+      "duration_s": 66,
+      "avg_speed_kmh": 4.91,
+      "ended_at": "2026-09-13T16:39:27"
+    },
+    {
+      "date": "2026-09-13",
+      "distance_m": 280,
+      "calories": 42.5,
+      "duration_s": 95,
+      "avg_speed_kmh": 10.61,
+      "ended_at": "2026-09-13T17:39:20"
+    },
+    {
+      "date": "2026-09-13",
+      "distance_m": 110,
+      "calories": 7.0,
+      "duration_s": 87,
+      "avg_speed_kmh": 4.55,
+      "ended_at": "2026-09-13T20:02:18"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 30,
+      "calories": 2.1,
+      "duration_s": 45,
+      "avg_speed_kmh": 2.4,
+      "ended_at": "2026-09-14T07:12:45"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 10,
+      "calories": 0.6,
+      "duration_s": 39,
+      "avg_speed_kmh": 0.92,
+      "ended_at": "2026-09-14T07:27:48"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 30,
+      "calories": 1.8,
+      "duration_s": 116,
+      "avg_speed_kmh": 0.93,
+      "ended_at": "2026-09-14T07:57:16"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 0,
+      "calories": 0.5,
+      "duration_s": 32,
+      "avg_speed_kmh": 0.0,
+      "ended_at": "2026-09-14T08:04:43"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 1702,
+      "calories": 248.4,
+      "duration_s": 181,
+      "avg_speed_kmh": 33.85,
+      "ended_at": "2026-09-14T09:32:02"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 1508,
+      "calories": 196.5,
+      "duration_s": 246,
+      "avg_speed_kmh": 22.07,
+      "ended_at": "2026-09-14T10:00:28"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 50,
+      "calories": 3.2,
+      "duration_s": 92,
+      "avg_speed_kmh": 1.96,
+      "ended_at": "2026-09-14T18:06:41"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 90,
+      "calories": 5.5,
+      "duration_s": 100,
+      "avg_speed_kmh": 3.24,
+      "ended_at": "2026-09-14T18:09:23"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 10,
+      "calories": 0.6,
+      "duration_s": 39,
+      "avg_speed_kmh": 0.92,
+      "ended_at": "2026-09-14T18:10:14"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 34,
+      "calories": 43.0,
+      "duration_s": 237,
+      "avg_speed_kmh": 0.52,
+      "ended_at": "2026-09-14T18:14:40"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 160,
+      "calories": 9.8,
+      "duration_s": 236,
+      "avg_speed_kmh": 2.44,
+      "ended_at": "2026-09-14T18:24:16"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 10,
+      "calories": 0.8,
+      "duration_s": 54,
+      "avg_speed_kmh": 0.67,
+      "ended_at": "2026-09-14T18:29:49"
+    },
+    {
+      "date": "2026-09-14",
+      "distance_m": 140,
+      "calories": 8.3,
+      "duration_s": 224,
+      "avg_speed_kmh": 2.25,
+      "ended_at": "2026-09-14T18:55:59"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 320,
+      "calories": 44.8,
+      "duration_s": 200,
+      "avg_speed_kmh": 5.76,
+      "ended_at": "2026-09-15T08:05:33"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 0,
+      "calories": 0.2,
+      "duration_s": 10,
+      "avg_speed_kmh": 0.0,
+      "ended_at": "2026-09-15T08:13:29"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 40,
+      "calories": 2.5,
+      "duration_s": 65,
+      "avg_speed_kmh": 2.22,
+      "ended_at": "2026-09-15T09:19:46"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 410,
+      "calories": 49.9,
+      "duration_s": 163,
+      "avg_speed_kmh": 9.06,
+      "ended_at": "2026-09-15T09:27:16"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 0,
+      "calories": 0.3,
+      "duration_s": 20,
+      "avg_speed_kmh": 0.0,
+      "ended_at": "2026-09-15T09:27:53"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 2478,
+      "calories": 304.8,
+      "duration_s": 94,
+      "avg_speed_kmh": 94.9,
+      "ended_at": "2026-09-15T10:08:09"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 70,
+      "calories": 4.5,
+      "duration_s": 148,
+      "avg_speed_kmh": 1.7,
+      "ended_at": "2026-09-15T10:22:48"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 760,
+      "calories": 70.9,
+      "duration_s": 135,
+      "avg_speed_kmh": 20.27,
+      "ended_at": "2026-09-15T10:39:06"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 50,
+      "calories": 2.9,
+      "duration_s": 122,
+      "avg_speed_kmh": 1.48,
+      "ended_at": "2026-09-15T10:47:52"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 20,
+      "calories": 1.6,
+      "duration_s": 53,
+      "avg_speed_kmh": 1.36,
+      "ended_at": "2026-09-15T10:50:06"
+    },
+    {
+      "date": "2026-09-15",
+      "distance_m": 750,
+      "calories": 70.2,
+      "duration_s": 131,
+      "avg_speed_kmh": 20.61,
+      "ended_at": "2026-09-15T11:01:14"
+    }
+  ]
+}

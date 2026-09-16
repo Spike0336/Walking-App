@@ -1,0 +1,13 @@
+{
+  "name": "Nigel's Walking Pad",
+  "short_name": "Walking Pad",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3F4F7",
+  "theme_color": "#0EA5A0",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0EA5A0">
+<title>Activity Dashboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#F3F4F7;--surface:#FFFFFF;--ink:#15181C;--ink-muted:#6B7280;
+    --brand:#0EA5A0;--brand-dark:#0B8C88;--warm:#FF7A45;--gold:#FFB020;--danger:#EF4444;--border:#E7E9EE;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 40px);
+    display:flex;flex-direction:column;gap:14px;}
+  h1{font-size:19px;font-weight:800;letter-spacing:-.3px;text-align:center;margin:6px 0 0;}
+  .subtitle{text-align:center;color:var(--ink-muted);font-size:12px;margin:0 0 2px;}
+  .backlink{display:block;text-align:center;font-size:12px;color:var(--brand-dark);font-weight:700;text-decoration:none;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;}
+  .card-title{font-weight:700;font-size:13px;margin-bottom:10px;}
+
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  button, input[type=file]::file-selector-button{font-family:inherit;font-size:12px;font-weight:700;
+    border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:8px 12px;cursor:pointer;}
+  button.primary{background:var(--brand);border-color:var(--brand);color:#fff;}
+  #statusMsg{font-size:11px;color:var(--ink-muted);text-align:center;}
+
+  .overview{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .overview-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;text-align:center;}
+  .overview-value{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .overview-label{font-size:11px;color:var(--ink-muted);font-weight:600;margin-top:4px;}
+
+  .chart-row{display:flex;flex-direction:column;gap:6px;}
+  .chart-label{font-size:11px;font-weight:700;color:var(--ink-muted);}
+  .chart-svg{width:100%;height:auto;display:block;}
+  .bar-label{font-size:9px;fill:var(--ink-muted);}
+  .bar-value{font-size:9px;fill:var(--ink);font-weight:700;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th{text-align:left;font-size:10px;color:var(--ink-muted);font-weight:700;text-transform:uppercase;
+    letter-spacing:.03em;padding:6px 4px;border-bottom:1px solid var(--border);}
+  td{padding:7px 4px;border-bottom:1px solid var(--border);}
+  tr:last-child td{border-bottom:none;}
+  .empty-note{color:var(--ink-muted);font-size:12px;text-align:center;padding:16px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nigel's Walking Pad</h1>
+  <div class="subtitle">Daily Activity Dashboard</div>
+  <a class="backlink" href="index.html">&larr; Back to controls</a>
+
+  <div class="card">
+    <div class="toolbar">
+      <button class="primary" id="exportBtn">Export backup (.json)</button>
+      <input type="file" id="importInput" accept=".json" style="display:none;">
+      <button id="importBtn">Import backup</button>
+    </div>
+    <div id="statusMsg" style="margin-top:8px;">Showing history saved on this phone.</div>
+  </div>
+
+  <div class="overview">
+    <div class="overview-card"><div class="overview-value" id="ovDistance">0.00 km</div><div class="overview-label">All-time distance</div></div>
+    <div class="overview-card"><div class="overview-value" id="ovTime">00:00</div><div class="overview-label">All-time time</div></div>
+    <div class="overview-card"><div class="overview-value" id="ovCalories">0</div><div class="overview-label">All-time calories</div></div>
+    <div class="overview-card"><div class="overview-value" id="ovSessions">0</div><div class="overview-label">Total sessions</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Last 14 days</div>
+    <div class="chart-row"><div class="chart-label">Distance (km)</div><svg class="chart-svg" id="chartDistance" viewBox="0 0 440 120"></svg></div>
+    <div class="chart-row" style="margin-top:14px;"><div class="chart-label">Time (minutes)</div><svg class="chart-svg" id="chartTime" viewBox="0 0 440 120"></svg></div>
+    <div class="chart-row" style="margin-top:14px;"><div class="chart-label">Calories</div><svg class="chart-svg" id="chartCalories" viewBox="0 0 440 120"></svg></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Day-by-day history</div>
+    <div id="historyTableWrap"></div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const HISTORY_KEY = 'wp_activity_history';
+  let sessions = [];
+
+  function loadFromStorage(){
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      sessions = raw ? (JSON.parse(raw).sessions || []) : [];
+    } catch(e){ sessions = []; }
+  }
+
+  function formatTime(totalSeconds){
+    const m = Math.floor(totalSeconds / 60);
+    const s = Math.round(totalSeconds % 60);
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+  function isoDate(d){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  $('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([localStorage.getItem(HISTORY_KEY) || '{"sessions":[]}'], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'activity_history.json'; a.click();
+    URL.revokeObjectURL(url);
+  });
+  $('importBtn').addEventListener('click', () => $('importInput').click());
+  $('importInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(data));
+        loadFromStorage(); render();
+        $('statusMsg').textContent = 'Imported ' + (data.sessions||[]).length + ' sessions.';
+      } catch(err) {
+        $('statusMsg').textContent = 'That file could not be read as valid JSON.';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  function groupByDate(){
+    const byDate = {};
+    sessions.forEach(s => {
+      if (!byDate[s.date]) byDate[s.date] = { distance_m:0, calories:0, duration_s:0, count:0 };
+      byDate[s.date].distance_m += s.distance_m;
+      byDate[s.date].calories += s.calories;
+      byDate[s.date].duration_s += s.duration_s;
+      byDate[s.date].count += 1;
+    });
+    return byDate;
+  }
+
+  function renderBarChart(svgId, entries, color, valueFmt){
+    const svg = $(svgId);
+    const W = 440, H = 120, padBottom = 20, padTop = 16;
+    const max = Math.max(1, ...entries.map(e => e.value));
+    const barW = W / entries.length;
+    let parts = [];
+    entries.forEach((e, i) => {
+      const h = Math.max(2, (e.value / max) * (H - padBottom - padTop));
+      const x = i * barW + barW * 0.16;
+      const w = barW * 0.68;
+      const y = H - padBottom - h;
+      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${e.value > 0 ? color : '#EEF0F3'}"></rect>`);
+      if (e.value > 0) parts.push(`<text class="bar-value" x="${(x+w/2).toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="middle">${valueFmt(e.value)}</text>`);
+      parts.push(`<text class="bar-label" x="${(x+w/2).toFixed(1)}" y="${H-5}" text-anchor="middle">${e.label}</text>`);
+    });
+    svg.innerHTML = parts.join('');
+  }
+
+  function render(){
+    const byDate = groupByDate();
+    let allDist=0, allCal=0, allDur=0, allSessions=0;
+    sessions.forEach(s => { allDist+=s.distance_m; allCal+=s.calories; allDur+=s.duration_s; allSessions++; });
+    $('ovDistance').textContent = (allDist/1000).toFixed(2) + ' km';
+    $('ovTime').textContent = formatTime(allDur);
+    $('ovCalories').textContent = Math.round(allCal);
+    $('ovSessions').textContent = allSessions;
+
+    const days = [];
+    const today = new Date();
+    for (let i=13; i>=0; i--){
+      const d = new Date(today); d.setDate(d.getDate()-i);
+      const key = isoDate(d);
+      const s = byDate[key] || { distance_m:0, calories:0, duration_s:0, count:0 };
+      days.push({ key, label: d.toLocaleDateString(undefined,{weekday:'narrow'}),
+        distance_m:s.distance_m, calories:s.calories, duration_s:s.duration_s, count:s.count });
+    }
+    renderBarChart('chartDistance', days.map(d=>({value:d.distance_m/1000,label:d.label})), '#FFB020', v=>v.toFixed(2));
+    renderBarChart('chartTime', days.map(d=>({value:d.duration_s/60,label:d.label})), '#0EA5A0', v=>Math.round(v));
+    renderBarChart('chartCalories', days.map(d=>({value:d.calories,label:d.label})), '#FF7A45', v=>Math.round(v));
+
+    const dates = Object.keys(byDate).sort().reverse();
+    const wrap = $('historyTableWrap');
+    if (dates.length === 0){
+      wrap.innerHTML = '<div class="empty-note">No sessions recorded yet -- go for a walk!</div>';
+      return;
+    }
+    let rows = dates.map(d => {
+      const s = byDate[d];
+      const label = new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+      return `<tr><td>${label}</td><td>${(s.distance_m/1000).toFixed(2)} km</td><td>${formatTime(s.duration_s)}</td><td>${Math.round(s.calories)} kcal</td><td>${s.count}</td></tr>`;
+    }).join('');
+    wrap.innerHTML = `<table><thead><tr><th>Date</th><th>Dist</th><th>Time</th><th>Cal</th><th>#</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  loadFromStorage();
+  render();
+</script>
+</body>
+</html>
