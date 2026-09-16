@@ -198,27 +198,40 @@ the Media Session API lets this page register itself as that media
 and receive the button presses.
 
 Tap **Watch** in the top bar to enable it. The page then holds a
-silent audio loop (so the phone treats it as a media source) and maps:
+silent audio loop (so the phone treats it as a media source) and the
+watch's Media tile becomes a pad remote:
 
-- **Play/Pause on the watch** -> toggles voice control on/off
-- **Next track** -> skip to the next programme stage (or Start)
-- **Previous track** -> Stop / cancel programme
+- **Play (>)** -> Start the pad, or Resume if you're mid-pause
+- **Pause (||)** -> Pause the pad (belt to 0; a running programme's
+  countdown freezes rather than ticking on without you)
+- **Previous (|<)** -> Stop, cancelling any running programme
 
-So the flow you wanted -- press a button on the watch, talk, don't
-touch the phone -- works via the watch's Media tile.
+The play/pause icon on the watch stays in step with what the pad is
+actually doing, including when you press Start/Pause/Stop on the
+phone or the pad changes state on its own.
 
-**Caveats I want to be straight about**, since I can't test this
-against your watch:
+**One thing I can't do**: put the actual words "Start", "Pause" and
+"Stop" on the watch as custom buttons. A web page can only hook the
+*standard* media actions, so the watch shows its usual media icons
+(play, pause, previous) -- I've mapped those to the three pad
+controls, but the labels are the media tile's, not mine. Custom
+labelled buttons would need a native Wear OS app, which is a separate
+build.
+
+Previous-track doubles as Stop because not every media tile renders a
+dedicated stop button; next-track is deliberately left unassigned so
+a stray swipe can't do something unexpected mid-walk.
+
+**Other caveats**, since I can't test against your watch:
 
 - Android sometimes suspends media sessions from background browser
   tabs. Keeping the PWA in the foreground (which you'd be doing
   anyway, screen wake-locked) is the reliable configuration.
-- Voice recognition itself still runs on the *phone's* microphone,
-  not the watch's. The watch press starts listening; you still speak
-  toward the phone. Routing the watch mic into a browser page isn't
-  possible.
-- If the Media tile doesn't pick this up, check the watch's "Show
-  media controls" setting is enabled in the Galaxy Wearable app.
+- If the Media tile doesn't pick this up, check "Show media controls"
+  is enabled for the watch in the Galaxy Wearable app.
+
+Voice control is unchanged and still has its own **Voice** button on
+the phone -- the watch no longer touches it.
 
 If this route turns out too flaky in practice, the honest
 alternative is a cheap Bluetooth remote shutter button (a few pounds)

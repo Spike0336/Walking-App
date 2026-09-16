@@ -247,7 +247,9 @@ function trackSession(status) {
   } else if (status.mode === 0 && state.sessionActive) {
     finalizeSession();
   }
+  const wasRunning = state.running;
   state.running = (status.mode === 3);
+  if (wasRunning !== state.running) syncWatchPlaybackState();
 }
 
 function finalizeSession() {
@@ -544,6 +546,7 @@ function togglePause() {
     speakEncouragement('Resuming workout.');
     send(P.cmdSetSpeed(state.prePauseSpeed)).catch(() => {});
   }
+  syncWatchPlaybackState();
 }
 $('pauseBtn').addEventListener('click', togglePause);
 
@@ -647,10 +650,15 @@ renderProgrammeList();
 // actually be playing audio -- so we hold a silent looping audio track for
 // as long as watch control is enabled.
 //
-// Mapping (watch button -> app action):
-//   Play/Pause  -> toggle voice control on/off  (your main ask)
-//   Next track  -> Start  (or skip to next programme segment)
-//   Prev track  -> Stop / cancel programme
+// Mapping (watch media button -> pad action):
+//   Play (>)          -> START the pad (or RESUME if paused)
+//   Pause (||)        -> PAUSE the pad (belt to 0, programme countdown frozen)
+//   Stop / Previous   -> STOP the pad and cancel any running programme
+//
+// NOTE: the watch shows the standard media icons for these -- a web page
+// can't relabel that tile with the words "Start/Pause/Stop". Previous-track
+// doubles as Stop because some media tiles don't render a dedicated stop
+// button.
 //
 let watchAudio = null;
 let watchControlOn = false;
@@ -662,6 +670,14 @@ function makeSilentLoop() {
   a.loop = true;
   a.volume = 0.01;
   return a;
+}
+
+/** Keeps the watch's play/pause icon in step with what the pad is doing.
+ *  'playing' makes the tile show a Pause button; 'paused' shows Play. */
+function syncWatchPlaybackState() {
+  if (!watchControlOn || !('mediaSession' in navigator)) return;
+  navigator.mediaSession.playbackState =
+    (state.running && !state.isPaused) ? 'playing' : 'paused';
 }
 
 async function toggleWatchControl() {
@@ -684,27 +700,48 @@ async function toggleWatchControl() {
     watchAudio = makeSilentLoop();
     await watchAudio.play();
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: 'Walking Pad Control',
-      artist: 'Play/Pause = voice on/off',
+      title: 'Walking Pad',
+      artist: 'Play = Start | Pause = Pause | Prev = Stop',
       album: "Nigel's Walking Pad",
       artwork: [{ src: 'icon.svg', sizes: '192x192', type: 'image/svg+xml' }],
     });
-    navigator.mediaSession.playbackState = 'playing';
 
-    navigator.mediaSession.setActionHandler('play', () => { toggleVoice(); });
-    navigator.mediaSession.setActionHandler('pause', () => { toggleVoice(); });
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      if (state.programme) { advanceSegment(); speakEncouragement('Skipping to next stage.'); }
-      else send(P.cmdStart()).catch(() => {});
+    // Play -> Start the pad, or Resume if we're mid-pause.
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (state.isPaused) {
+        togglePause();              // resumes and restores the pre-pause speed
+      } else {
+        state.isPaused = false;
+        $('pauseBtn').textContent = 'Pause';
+        send(P.cmdStart()).catch(() => {});
+        speakEncouragement('Starting.');
+      }
+      syncWatchPlaybackState();
     });
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
+
+    // Pause -> pause the belt, freezing any programme countdown.
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (!state.isPaused) togglePause();
+      syncWatchPlaybackState();
+    });
+
+    // Stop -> full stop, cancelling any running programme.
+    const doStop = () => {
       if (state.programme) cancelProgramme(false);
+      state.isPaused = false;
+      $('pauseBtn').textContent = 'Pause';
       send(P.cmdStop()).catch(() => {});
       speakEncouragement('Stopped.');
-    });
+      syncWatchPlaybackState();
+    };
+    navigator.mediaSession.setActionHandler('stop', doStop);
+    navigator.mediaSession.setActionHandler('previoustrack', doStop);
+    // Left unassigned so a stray swipe can't change anything unexpectedly.
+    navigator.mediaSession.setActionHandler('nexttrack', null);
 
-    log('Watch control on. On your Watch 4, open the Media controls tile -- ' +
-        'Play/Pause toggles voice, Next skips a stage, Previous stops.');
+    syncWatchPlaybackState();
+    log('Watch control on. On your Watch 4, open the Media tile -- ' +
+        'Play = Start, Pause = Pause, Previous = Stop.');
     speakEncouragement('Watch control enabled.');
   } catch (e) {
     log('Could not start watch control: ' + e + ' -- tap the button again after interacting with the page.');
