@@ -154,6 +154,41 @@ Two things from your desktop `index.html` that hadn't made it across yet:
   / `programTimeLine` in your desktop version. A **Cancel programme**
   button sits inside that box.
 
+## Fix: disconnecting when a programme starts
+
+The likely cause: several Bluetooth writes were landing close together
+right when a programme starts (Start, then the poll loop still ticking
+every 0.45s in the background, then the first set-speed). Android's
+Bluetooth stack only allows one GATT operation in flight at a time --
+sending a second write before the first has fully settled throws a
+"GATT operation already in progress" error, and on some phones that
+knocks the whole connection over rather than just failing the write.
+Manual button presses are spaced out enough by hand that this rarely
+bites; a programme firing several writes in quick succession is
+exactly the pattern that triggers it.
+
+Two changes:
+
+1. **All writes now go through a single queue.** Start, Stop, set-speed,
+   and the background poll all funnel through one `send()` that waits
+   for each write to fully finish (plus a 30ms buffer) before the next
+   one goes out, instead of potentially overlapping.
+2. **Auto-reconnect.** If the pad drops the connection on its own
+   (rather than you pressing Disconnect), the app now tries to
+   reconnect automatically -- up to 4 attempts with increasing delays
+   -- and if a programme was running, resumes it at the same step and
+   speed rather than losing your progress. You'll see this happening
+   in the activity log ("Connection dropped unexpectedly -- attempting
+   to reconnect...").
+
+I can't test either of these against your actual pad. If it still
+disconnects after this, open the **Connection troubleshooting** panel
+on the main screen, reproduce the issue, and send me what shows up in
+the activity log there -- the exact error text (e.g. whether it says
+"GATT operation already in progress" or something else entirely, like
+a characteristic write timeout) tells me whether this was the right
+fix or whether something else is going on.
+
 ## Programmes are now on their own page
 
 Tapping **Browse all 25 programmes** opens `programmes.html` -- a

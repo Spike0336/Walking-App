@@ -52,6 +52,7 @@ const state = {
   writeChar: null,
   notifyChar: null,
   connected: false,
+  userInitiatedDisconnect: false,
   pollTimer: null,
   running: false,
   sessionActive: false,
@@ -132,6 +133,7 @@ async function connect() {
   requestWakeLock(); // best done inside a user gesture (this click) for reliability
   const services = getServiceGuesses();
   localStorage.setItem(SERVICES_KEY, JSON.stringify(services));
+  state.userInitiatedDisconnect = false;
 
   try {
     log('Opening device picker...');
@@ -140,70 +142,109 @@ async function connect() {
       optionalServices: services,
     });
     state.device.addEventListener('gattserverdisconnected', onDisconnected);
-
-    log(`Connecting to ${state.device.name || state.device.id}...`);
-    state.server = await state.device.gatt.connect();
-
-    let writeChar = null, notifyChar = null;
-    const primaryServices = await state.server.getPrimaryServices();
-    for (const service of primaryServices) {
-      const chars = await service.getCharacteristics();
-      for (const ch of chars) {
-        const uuid = ch.uuid.toLowerCase();
-        if (uuid.includes('ffe1') && !writeChar) writeChar = ch;
-        if (uuid.includes('fff1') && !notifyChar) notifyChar = ch;
-      }
-    }
-    if (!writeChar || !notifyChar) {
-      // Generic fallback, same idea as the desktop app: take whatever looks writable/notifiable.
-      for (const service of primaryServices) {
-        const chars = await service.getCharacteristics();
-        for (const ch of chars) {
-          if (!writeChar && (ch.properties.write || ch.properties.writeWithoutResponse)) writeChar = ch;
-          if (!notifyChar && ch.properties.notify) notifyChar = ch;
-        }
-      }
-    }
-    if (!writeChar || !notifyChar) {
-      log('Could not find write/notify characteristics under the service UUIDs tried. ' +
-          'Find the real service UUID with a BLE scanner app and paste it into the field below.');
-      setStatus('Connect failed', false);
-      return;
-    }
-
-    state.writeChar = writeChar;
-    state.notifyChar = notifyChar;
-    log(`Using write=${writeChar.uuid} notify=${notifyChar.uuid}`);
-
-    await notifyChar.startNotifications();
-    notifyChar.addEventListener('characteristicvaluechanged', onNotify);
-    log('Subscribed to notifications OK');
-
-    await send(P.cmdQueryInfo());
-    await sleep(100);
-    await send(P.cmdQueryStatus());
-
-    state.connected = true;
-    setStatus(state.device.name || 'Connected', true);
-
-    state.pollTimer = setInterval(() => { send(P.cmdPoll()).catch(e => log('Poll error: ' + e)); }, POLL_INTERVAL_MS);
+    await bindToDevice();
   } catch (e) {
     log('Connect failed: ' + e);
     setStatus('Connect failed', false);
   }
 }
 
-function onDisconnected() {
+/** Connects GATT (if needed) and (re)discovers characteristics + notifications.
+ *  Used both for the first connect and for silent auto-reconnects. */
+async function bindToDevice() {
+  log(`Connecting to ${state.device.name || state.device.id}...`);
+  state.server = await state.device.gatt.connect();
+
+  let writeChar = null, notifyChar = null;
+  const primaryServices = await state.server.getPrimaryServices();
+  for (const service of primaryServices) {
+    const chars = await service.getCharacteristics();
+    for (const ch of chars) {
+      const uuid = ch.uuid.toLowerCase();
+      if (uuid.includes('ffe1') && !writeChar) writeChar = ch;
+      if (uuid.includes('fff1') && !notifyChar) notifyChar = ch;
+    }
+  }
+  if (!writeChar || !notifyChar) {
+    // Generic fallback, same idea as the desktop app: take whatever looks writable/notifiable.
+    for (const service of primaryServices) {
+      const chars = await service.getCharacteristics();
+      for (const ch of chars) {
+        if (!writeChar && (ch.properties.write || ch.properties.writeWithoutResponse)) writeChar = ch;
+        if (!notifyChar && ch.properties.notify) notifyChar = ch;
+      }
+    }
+  }
+  if (!writeChar || !notifyChar) {
+    log('Could not find write/notify characteristics under the service UUIDs tried. ' +
+        'Find the real service UUID with a BLE scanner app and paste it into the field below.');
+    setStatus('Connect failed', false);
+    return false;
+  }
+
+  state.writeChar = writeChar;
+  state.notifyChar = notifyChar;
+  log(`Using write=${writeChar.uuid} notify=${notifyChar.uuid}`);
+
+  await notifyChar.startNotifications();
+  notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+  log('Subscribed to notifications OK');
+
+  await send(P.cmdQueryInfo());
+  await send(P.cmdQueryStatus());
+
+  state.connected = true;
+  setStatus(state.device.name || 'Connected', true);
+
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.pollTimer = setInterval(() => { send(P.cmdPoll()).catch(e => log('Poll error: ' + e)); }, POLL_INTERVAL_MS);
+  return true;
+}
+
+async function onDisconnected() {
   if (state.pollTimer) clearInterval(state.pollTimer);
   state.pollTimer = null;
   state.connected = false;
+  setStatus('Disconnected', false);
+
+  if (state.userInitiatedDisconnect) {
+    log('Disconnected.');
+    if (state.sessionActive) finalizeSession();
+    if (state.programme) cancelProgramme(false);
+    return;
+  }
+
+  // Not asked for -- the pad dropped the link on its own. Try to get straight
+  // back to where we were rather than losing a run in progress.
+  log('Connection dropped unexpectedly -- attempting to reconnect...');
+  if (state.programme) { if (state.programmeTimer) clearInterval(state.programmeTimer); }
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    await sleep(1000 * attempt);
+    try {
+      log(`Reconnect attempt ${attempt}/4...`);
+      const ok = await bindToDevice();
+      if (ok) {
+        log('Reconnected.');
+        // Resume exactly where the programme was (same segment, same speed);
+        // don't re-run advanceSegment so the countdown/step index isn't reset.
+        if (state.programme) {
+          const seg = state.programme.segments[state.segmentIndex];
+          if (seg) { setSpeedAssured(seg.speed_kmh); updateProgrammeUI(seg); }
+          state.programmeTimer = setInterval(programmeTick, 1000);
+        }
+        return;
+      }
+    } catch (e) {
+      log(`Reconnect attempt ${attempt} failed: ${e}`);
+    }
+  }
+  log('Could not reconnect after 4 attempts. Giving up -- press Connect to try again.');
   if (state.sessionActive) finalizeSession();
   if (state.programme) cancelProgramme(false);
-  setStatus('Disconnected', false);
-  log('Disconnected');
 }
 
 async function disconnect() {
+  state.userInitiatedDisconnect = true;
   if (state.device && state.device.gatt.connected) {
     state.device.gatt.disconnect();
   } else {
@@ -211,18 +252,32 @@ async function disconnect() {
   }
 }
 
-async function send(frame) {
-  if (!state.writeChar) { log('Send skipped: not connected'); return; }
-  try {
-    if (state.writeChar.properties.writeWithoutResponse) {
-      await state.writeChar.writeValueWithoutResponse(frame);
-    } else {
-      await state.writeChar.writeValue(frame);
+// All BLE writes funnel through this single queue so nothing is ever sent
+// while a previous write is still settling. Sending two GATT operations at
+// once (e.g. the poll loop firing while a programme's Start/Set-speed write
+// is also going out) is a well-known cause of "GATT operation already in
+// progress" errors on Android, which can knock the whole connection over --
+// this was the most likely cause of disconnects when starting a programme,
+// since that's the moment several writes land close together.
+let writeQueue = Promise.resolve();
+function send(frame) {
+  const job = writeQueue.then(async () => {
+    if (!state.writeChar) { log('Send skipped: not connected'); return; }
+    try {
+      if (state.writeChar.properties.writeWithoutResponse) {
+        await state.writeChar.writeValueWithoutResponse(frame);
+      } else {
+        await state.writeChar.writeValue(frame);
+      }
+    } catch (e) {
+      log(`Write error (${P.toHex(frame)}): ${e}`);
+      throw e;
+    } finally {
+      await sleep(30); // give the BLE stack a beat before the next operation
     }
-  } catch (e) {
-    log(`Write error (${P.toHex(frame)}): ${e}`);
-    throw e;
-  }
+  });
+  writeQueue = job.catch(() => {}); // keep the chain alive even if this write failed
+  return job;
 }
 
 function onNotify(event) {
