@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0EA5A0">
+<title>Choose a Programme</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#F3F4F7;--surface:#FFFFFF;--ink:#15181C;--ink-muted:#6B7280;
+    --brand:#0EA5A0;--brand-dark:#0B8C88;--gold:#FFB020;--border:#E7E9EE;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:480px;margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 30px);
+    display:flex;flex-direction:column;gap:12px;}
+  .topbar{display:flex;align-items:center;gap:10px;}
+  .back-btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:10px;
+    border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:9px 14px;cursor:pointer;}
+  h1{font-size:18px;font-weight:800;letter-spacing:-.3px;margin:0;}
+  .hint{font-size:12px;color:var(--ink-muted);margin:0;}
+
+  .prog-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:13px 14px;cursor:pointer;display:flex;align-items:center;gap:12px;}
+  .prog-card:active{border-color:var(--brand);background:#F0FDFA;}
+  .prog-num{flex:0 0 32px;height:32px;border-radius:9px;background:var(--brand);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;}
+  .prog-body{min-width:0;flex:1;}
+  .prog-name{font-weight:800;font-size:14px;}
+  .prog-desc{font-size:11.5px;color:var(--ink-muted);margin-top:2px;}
+  .prog-steps{font-size:10.5px;color:var(--ink-muted);margin-top:4px;}
+  .chev{color:var(--brand);font-weight:800;font-size:18px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="back-btn" onclick="location.href='index.html'">&larr; Back</button>
+    <h1>Choose a Programme</h1>
+  </div>
+  <p class="hint">Tap a programme to return to the main screen and start it.</p>
+  <div id="list"></div>
+</div>
+
+<script src="programmes.js"></script>
+<script>
+  const list = document.getElementById('list');
+  const programmes = window.WalkPadProgrammes || [];
+
+  list.innerHTML = programmes.map((p, i) => {
+    const totalMin = Math.round(p.segments.reduce((s, seg) => s + seg.duration_s, 0) / 60);
+    const speeds = p.segments.map(s => s.speed_kmh);
+    const range = `${Math.min(...speeds)}\u2013${Math.max(...speeds)} km/h`;
+    return `<div class="prog-card" data-idx="${i}">
+      <div class="prog-num">${i + 1}</div>
+      <div class="prog-body">
+        <div class="prog-name">${p.name}</div>
+        <div class="prog-desc">${p.desc}</div>
+        <div class="prog-steps">${p.segments.length} steps &middot; ${totalMin} min &middot; ${range}</div>
+      </div>
+      <div class="chev">&rsaquo;</div>
+    </div>`;
+  }).join('');
+
+  // Tapping a programme hands the choice back to the main screen, which
+  // picks it up on load and starts it automatically.
+  list.querySelectorAll('.prog-card').forEach(card => {
+    card.addEventListener('click', () => {
+      sessionStorage.setItem('wp_pending_programme', card.dataset.idx);
+      location.href = 'index.html';
+    });
+  });
+</script>
+</body>
+</html>

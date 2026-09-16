@@ -1,7 +1,8 @@
-const CACHE_NAME = 'walkingpad-v1';
+const CACHE_NAME = 'walkingpad-v2';
 const ASSETS = [
   './index.html',
   './dashboard.html',
+  './programmes.html',
   './app.js',
   './protocol.js',
   './programmes.js',

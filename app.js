@@ -63,6 +63,7 @@ const state = {
   programmeTimer: null,
   isPaused: false,
   prePauseSpeed: 3.0,
+  targetSpeed: null,
   listening: false,
   lastDistanceM: 0,
   lastCalories: 0,
@@ -336,7 +337,7 @@ $('stopBtn').addEventListener('click', () => {
 document.querySelectorAll('.chip').forEach(chip => {
   chip.addEventListener('click', () => {
     const kmh = parseFloat(chip.dataset.speed);
-    send(P.cmdSetSpeed(kmh)).catch(() => {});
+    setSpeedAssured(kmh);
   });
 });
 
@@ -361,6 +362,10 @@ function loadVideo(url) {
   frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${idMatch[1]}?autoplay=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
   localStorage.setItem(VIDEO_KEY, url);
 }
+
+$('browseYoutubeBtn').addEventListener('click', () => {
+  window.open('https://www.youtube.com', '_blank');
+});
 
 $('loadVideoBtn').addEventListener('click', () => loadVideo($('videoUrlInput').value.trim()));
 $('videoUrlInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadVideo(e.target.value.trim()); });
@@ -406,33 +411,23 @@ const MOTIVATIONAL_QUOTES = [
 // ---- Programmes ---------------------------------------------------------
 
 function renderProgrammeList() {
-  const list = $('programmeList');
-  const programmes = window.WalkPadProgrammes || [];
-
-  // Dropdown selector (mirrors the picker on the desktop app)
-  const select = $('programmeSelect');
-  select.innerHTML = programmes.map((p, i) => `<option value="${i}">${i + 1}. ${p.name}</option>`).join('');
-  const updateDesc = () => {
-    const p = programmes[parseInt(select.value, 10)];
-    $('programmeSelectDesc').textContent = p ? p.desc : '';
-  };
-  select.addEventListener('change', updateDesc);
-  updateDesc();
-  $('startSelectedProgrammeBtn').addEventListener('click', () => {
-    startProgramme(parseInt(select.value, 10));
+  // The full list now lives on programmes.html. This just wires up the
+  // "Browse" button and picks up a choice handed back from that page.
+  $('browseProgrammesBtn').addEventListener('click', () => {
+    location.href = 'programmes.html';
   });
 
-  // Full scrollable list underneath, for browsing descriptions at a glance
-  list.innerHTML = programmes.map((p, i) => {
-    return `<div class="programme-row" data-idx="${i}">
-      <div><div class="programme-name">${i + 1}. ${p.name}</div><div class="programme-meta">${p.desc}</div></div>
-      <button class="programme-start" data-idx="${i}">Start</button>
-    </div>`;
-  }).join('') || '<div class="empty-note">No programmes loaded yet</div>';
-
-  list.querySelectorAll('.programme-start').forEach(btn => {
-    btn.addEventListener('click', () => startProgramme(parseInt(btn.dataset.idx, 10)));
-  });
+  const pending = sessionStorage.getItem('wp_pending_programme');
+  if (pending !== null) {
+    sessionStorage.removeItem('wp_pending_programme');
+    const idx = parseInt(pending, 10);
+    const p = (window.WalkPadProgrammes || [])[idx];
+    if (p) {
+      $('lastProgrammeNote').textContent = `Selected: ${idx + 1}. ${p.name}`;
+      // Give the page (and any reconnect) a moment to settle before firing.
+      setTimeout(() => startProgramme(idx), 600);
+    }
+  }
 }
 
 function startProgramme(idx) {
@@ -445,13 +440,40 @@ function startProgramme(idx) {
   state.segmentIndex = -1;
   state.isPaused = false;
   $('pauseBtn').textContent = 'Pause';
-  const select = $('programmeSelect');
-  if (select) select.value = String(idx);
+  $('lastProgrammeNote').textContent = `Running: ${idx + 1}. ${p.name}`;
   send(P.cmdStart()).catch(() => {});
   speakEncouragement(`Starting programme ${p.name}. Let's begin.`);
-  advanceSegment();
+  // The pad spins its belt up at its own default (1.0 km/h) and ignores a
+  // set-speed sent in the same instant as Start -- which is why the first
+  // segment used to run at 1 instead of its target. Give the pad a moment
+  // to leave its start-up state before setting the first speed.
+  setTimeout(() => {
+    if (state.programme === p) advanceSegment();
+  }, 1800);
   state.programmeTimer = setInterval(programmeTick, 1000);
   $('programInfoBox').style.display = 'block';
+  $('programTitleLine').textContent = `Programme ${idx + 1}: ${p.name}`;
+  $('programStepLine').textContent = 'Starting up...';
+  $('programTimeLine').textContent = '--:--';
+}
+
+/** Send a speed and re-assert it if the pad's telemetry shows it didn't take.
+ *  The pad can silently drop a set-speed during belt spin-up or right after a
+ *  mode change, so we verify against the reported speed and retry a few times. */
+function setSpeedAssured(targetKmh, attempt = 0) {
+  state.targetSpeed = targetKmh;
+  send(P.cmdSetSpeed(targetKmh)).catch(() => {});
+  if (attempt >= 4) return;
+  setTimeout(() => {
+    // Only keep retrying while this is still the speed we want.
+    if (state.targetSpeed !== targetKmh) return;
+    if (state.isPaused) return;
+    const reported = parseFloat($('speedValue').textContent) || 0;
+    if (Math.abs(reported - targetKmh) > 0.15) {
+      log(`Speed didn't take (showing ${reported}, want ${targetKmh}) -- resending.`);
+      setSpeedAssured(targetKmh, attempt + 1);
+    }
+  }, 1200);
 }
 
 function advanceSegment() {
@@ -459,16 +481,19 @@ function advanceSegment() {
   const seg = state.programme.segments[state.segmentIndex];
   if (!seg) { cancelProgramme(true); return; }
   state.segmentRemaining = seg.duration_s;
-  send(P.cmdSetSpeed(seg.speed_kmh)).catch(() => {});
+  setSpeedAssured(seg.speed_kmh);
   updateProgrammeUI(seg);
   if (state.segmentIndex > 0) {
     const quote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
     speakEncouragement(`${quote} Now starting ${seg.label} at ${seg.speed_kmh} kilometers per hour.`);
+  } else {
+    speakEncouragement(`First stage: ${seg.label} at ${seg.speed_kmh} kilometers per hour.`);
   }
 }
 
 function programmeTick() {
-  if (!state.programme || !state.running || state.isPaused) return;
+  if (!state.programme || state.isPaused) return;
+  if (state.segmentIndex < 0) return; // still in the start-up delay
   state.segmentRemaining -= 1;
   if (state.segmentRemaining <= 0) {
     advanceSegment();
@@ -495,6 +520,7 @@ function cancelProgramme(finished) {
   state.programmeIdx = -1;
   state.segmentIndex = -1;
   state.isPaused = false;
+  state.targetSpeed = null;
   $('pauseBtn').textContent = 'Pause';
   $('programInfoBox').style.display = 'none';
 }
@@ -609,6 +635,86 @@ function wordsToNumber(token) {
 $('voiceBtn').addEventListener('click', toggleVoice);
 setupVoice();
 renderProgrammeList();
+
+// ---- Galaxy Watch control via the Media Session API --------------------
+//
+// There is no way for a watch app to talk directly to a web page. What DOES
+// work: the phone exposes a media-notification session, the watch's media
+// controls drive that session, and the Media Session API lets this page
+// receive those button presses as action handlers.
+//
+// For the phone to consider this page a media source, something must
+// actually be playing audio -- so we hold a silent looping audio track for
+// as long as watch control is enabled.
+//
+// Mapping (watch button -> app action):
+//   Play/Pause  -> toggle voice control on/off  (your main ask)
+//   Next track  -> Start  (or skip to next programme segment)
+//   Prev track  -> Stop / cancel programme
+//
+let watchAudio = null;
+let watchControlOn = false;
+
+function makeSilentLoop() {
+  // A tiny silent WAV, looped. Keeps a media session alive without noise.
+  const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAA';
+  const a = new Audio(silentWav);
+  a.loop = true;
+  a.volume = 0.01;
+  return a;
+}
+
+async function toggleWatchControl() {
+  if (!('mediaSession' in navigator)) {
+    log('This browser has no Media Session support, so watch control is unavailable here.');
+    return;
+  }
+  watchControlOn = !watchControlOn;
+  $('watchBtn').classList.toggle('active', watchControlOn);
+  $('watchBtn').textContent = watchControlOn ? 'Watch: On' : 'Watch';
+
+  if (!watchControlOn) {
+    if (watchAudio) { watchAudio.pause(); watchAudio = null; }
+    navigator.mediaSession.playbackState = 'none';
+    log('Watch control off.');
+    return;
+  }
+
+  try {
+    watchAudio = makeSilentLoop();
+    await watchAudio.play();
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: 'Walking Pad Control',
+      artist: 'Play/Pause = voice on/off',
+      album: "Nigel's Walking Pad",
+      artwork: [{ src: 'icon.svg', sizes: '192x192', type: 'image/svg+xml' }],
+    });
+    navigator.mediaSession.playbackState = 'playing';
+
+    navigator.mediaSession.setActionHandler('play', () => { toggleVoice(); });
+    navigator.mediaSession.setActionHandler('pause', () => { toggleVoice(); });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      if (state.programme) { advanceSegment(); speakEncouragement('Skipping to next stage.'); }
+      else send(P.cmdStart()).catch(() => {});
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      if (state.programme) cancelProgramme(false);
+      send(P.cmdStop()).catch(() => {});
+      speakEncouragement('Stopped.');
+    });
+
+    log('Watch control on. On your Watch 4, open the Media controls tile -- ' +
+        'Play/Pause toggles voice, Next skips a stage, Previous stops.');
+    speakEncouragement('Watch control enabled.');
+  } catch (e) {
+    log('Could not start watch control: ' + e + ' -- tap the button again after interacting with the page.');
+    watchControlOn = false;
+    $('watchBtn').classList.remove('active');
+    $('watchBtn').textContent = 'Watch';
+  }
+}
+
+$('watchBtn').addEventListener('click', toggleWatchControl);
 
 // ---- Dashboard link + init ---------------------------------------------
 

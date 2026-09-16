@@ -86,6 +86,8 @@
     border-radius:10px;padding:9px 10px;color:var(--ink);background:var(--surface);}
   .programme-picker-desc{font-size:11px;color:var(--ink-muted);margin-top:6px;}
   #voiceBtn.active{background:var(--brand);border-color:var(--brand);color:#fff;}
+  #watchBtn.active{background:var(--gold);border-color:var(--gold);color:#15181C;}
+  .footer-bar button{padding:9px 10px;font-size:12px;}
 
   .video-input-row{display:flex;gap:8px;}
   .video-input-row input{flex:1;font-family:inherit;font-size:13px;border:1px solid var(--border);
@@ -111,6 +113,7 @@
       <div class="device-name" id="deviceName">Not connected</div>
     </div>
     <div style="display:flex;gap:8px;">
+      <button id="watchBtn">Watch</button>
       <button id="voiceBtn">Voice: Off</button>
       <button class="primary" id="connectBtn">Connect</button>
     </div>
@@ -171,12 +174,10 @@
 
   <div class="card">
     <div class="card-title">Programmes</div>
-    <div class="programme-picker">
-      <select id="programmeSelect"></select>
-      <button class="primary" id="startSelectedProgrammeBtn">Start</button>
-    </div>
-    <div class="programme-picker-desc" id="programmeSelectDesc"></div>
-    <div id="programmeList"></div>
+    <button class="primary" id="browseProgrammesBtn" style="width:100%;padding:13px 0;font-size:14px;">
+      Browse all 25 programmes &rarr;
+    </button>
+    <div class="programme-picker-desc" id="lastProgrammeNote"></div>
   </div>
 
   <div class="card">
@@ -185,6 +186,7 @@
       <input type="text" id="videoUrlInput" placeholder="Paste a YouTube link">
       <button id="loadVideoBtn">Load</button>
     </div>
+    <button id="browseYoutubeBtn" style="width:100%;margin-top:8px;">Browse YouTube &#8599;</button>
     <div class="video-frame" id="videoFrame">
       <div class="video-placeholder">Paste a YouTube link above</div>
     </div>

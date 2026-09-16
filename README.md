@@ -154,6 +154,78 @@ Two things from your desktop `index.html` that hadn't made it across yet:
   / `programTimeLine` in your desktop version. A **Cancel programme**
   button sits inside that box.
 
+## Programmes are now on their own page
+
+Tapping **Browse all 25 programmes** opens `programmes.html` -- a
+full-screen list showing each programme's name, description, step
+count, duration and speed range. Tap one and it returns to the main
+screen and starts that programme automatically.
+
+## Fix: first segment used to run at 1 km/h
+
+The pad spins its belt up at its own default (1.0 km/h) when it gets
+a Start, and it ignores a set-speed that arrives in that same instant
+-- so the first segment's target speed was being thrown away and you
+were left walking at 1.
+
+Two changes fix it:
+
+1. The first set-speed is now sent ~1.8s after Start, once the pad
+   has left its start-up state. The info box shows "Starting up..."
+   during that gap and the segment countdown doesn't begin until the
+   real speed is set, so you don't lose any of the segment.
+2. A new "assured" send checks the pad's own reported speed about a
+   second after any speed change, and resends (up to 4 times) if the
+   pad didn't take it. This also covers the manual speed buttons,
+   which could drop commands the same way.
+
+That said, I can't test this against your actual pad -- 1.8s is my
+estimate of its spin-up time. If you still see a wrong first speed,
+tell me and I'll lengthen it; the retry logic should cover it
+regardless, just a second or two later.
+
+## Galaxy Watch 4 control -- what's possible, honestly
+
+There's no way for a watch app to send commands straight to a web
+page -- a PWA can't be reached from Wear OS directly. Doing it
+"properly" would mean writing a native Wear OS app plus a native
+Android phone app to relay to, which is a different project entirely
+(and needs Android Studio, which I can't run here).
+
+What I've built instead uses the route that genuinely does exist:
+your watch can already control **media playing on your phone**, and
+the Media Session API lets this page register itself as that media
+and receive the button presses.
+
+Tap **Watch** in the top bar to enable it. The page then holds a
+silent audio loop (so the phone treats it as a media source) and maps:
+
+- **Play/Pause on the watch** -> toggles voice control on/off
+- **Next track** -> skip to the next programme stage (or Start)
+- **Previous track** -> Stop / cancel programme
+
+So the flow you wanted -- press a button on the watch, talk, don't
+touch the phone -- works via the watch's Media tile.
+
+**Caveats I want to be straight about**, since I can't test this
+against your watch:
+
+- Android sometimes suspends media sessions from background browser
+  tabs. Keeping the PWA in the foreground (which you'd be doing
+  anyway, screen wake-locked) is the reliable configuration.
+- Voice recognition itself still runs on the *phone's* microphone,
+  not the watch's. The watch press starts listening; you still speak
+  toward the phone. Routing the watch mic into a browser page isn't
+  possible.
+- If the Media tile doesn't pick this up, check the watch's "Show
+  media controls" setting is enabled in the Galaxy Wearable app.
+
+If this route turns out too flaky in practice, the honest
+alternative is a cheap Bluetooth remote shutter button (a few pounds)
+clipped to your wrist or the pad handle -- those present as a
+keyboard/media device and are far more reliable than the media-session
+route. Say the word and I'll add key-event handling for one.
+
 ## Screen stays awake mid-walk
 
 Also ported: the desktop app's wake-lock behaviour, so your S23's
