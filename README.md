@@ -154,6 +154,26 @@ Two things from your desktop `index.html` that hadn't made it across yet:
   / `programTimeLine` in your desktop version. A **Cancel programme**
   button sits inside that box.
 
+## If a fix doesn't seem to take effect
+
+The service worker (for offline/home-screen install) used to cache the
+app "cache-first" -- meaning a redeploy of these files could sit on
+GitHub Pages unused while your phone kept running the old cached
+`app.js`, with no error or signal that anything was stale. That's now
+switched to "network-first": every load fetches the latest version
+first and only falls back to the cached copy if there's no signal.
+
+Two things to do once, after this update, so the new behaviour
+actually takes over:
+
+1. Make sure the updated files are actually pushed to wherever you're
+   hosting them (GitHub Pages, etc.) -- redeploying is still a
+   separate step from downloading the zip here.
+2. Fully close the app (swipe it away from recent apps, not just lock
+   the screen) and reopen it once, so the old service worker hands off
+   to the new one. After that, a normal reload will always pick up
+   whatever's actually deployed.
+
 ## Fix: starting a programme while not actually connected
 
 Your activity log was telling: it had no "Connecting to...", no "Using

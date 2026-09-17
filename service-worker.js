@@ -1,4 +1,4 @@
-const CACHE_NAME = 'walkingpad-v2';
+const CACHE_NAME = 'walkingpad-v3';
 const ASSETS = [
   './index.html',
   './dashboard.html',
@@ -26,11 +26,20 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Cache-first for the app shell; network otherwise (this app has no
-// remote API calls of its own besides YouTube embeds, which pass through).
+// Network-first for the app shell, falling back to cache when offline.
+// (Cache-first was the earlier approach, but it meant an updated app.js
+// could sit unused on your phone until the cache name itself changed --
+// this way a normal reload always picks up whatever's actually deployed,
+// and you only ever fall back to the cached copy with no signal at all.)
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
