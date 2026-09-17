@@ -16,78 +16,109 @@ Bluetooth, so this will work in either browser on your S23.
 
 ## What's in here
 
-- `index.html` -- main control screen: connect, start/stop, speed
-  chips, live stats, today + recent days, video panel
+- `index.html` -- the entire app: connect, start/pause/stop, speed
+  chips, live stats, today + recent days, the programme picker
+  (an in-page overlay -- see below), and the video panel
 - `dashboard.html` -- full charts and day-by-day history
 - `protocol.js` -- JS port of `fitshow_protocol.py` (same frame
   format, same commands, same open questions -- e.g. the `0xab` auth
   handshake still isn't reverse-engineered, and this still skips it,
   same as the desktop app)
-- `app.js` -- Web Bluetooth connect/control logic + session tracking
+- `programmes.js` -- all 25 preset programmes' segment data
+- `app.js` -- Web Bluetooth connect/control logic, session tracking,
+  the programme player, voice control, and watch control
 - `manifest.webmanifest`, `service-worker.js`, `icon.svg` -- make it
   installable to your home screen and usable offline
-- `activity_history_backup.json` -- your existing history from
-  `activity_history.json`, ready to import (see below)
+- `activity_history_backup.json` -- your original history from the
+  desktop app, ready to import (see below)
 
 ## One important difference: where history is stored
 
 The desktop app writes to a file (`activity_history.json`) next to
 the app. A phone browser can't write to an arbitrary file like that,
 so this version stores your history in the browser's **localStorage**
-instead -- tied to that browser, on that phone. Two things follow
-from that:
+instead -- tied to that browser, on that phone.
 
 - **Bring your old history over**: open the dashboard, tap **Import
-  backup**, and select `activity_history_backup.json` (included in
-  this folder) to load your existing sessions.
+  backup**, and select `activity_history_backup.json` to load your
+  existing sessions.
 - **Back it up occasionally**: tap **Export backup** on the dashboard
-  now and then, especially before clearing browser data or switching
-  phones -- clearing Chrome's site data for this page would otherwise
-  erase your history.
+  now and then -- clearing Chrome's site data for this page would
+  otherwise erase your history.
 
 ## Deploying it to your phone
 
 Web Bluetooth only works in a "secure context" (HTTPS, or
-`localhost`) -- **not** when you open `index.html` straight from a
-file on your phone. The simplest free option:
-
-1. Create a free GitHub repository (or reuse one you have) and upload
-   all the files in this folder to it.
-2. Turn on **GitHub Pages** for that repo (Settings -> Pages -> Deploy
-   from branch -> `main` / root). GitHub gives you a URL like
-   `https://yourname.github.io/walkingpad/`.
-3. Open that URL in Chrome on your S23.
-4. Tap the **three-dot menu -> Add to Home screen** (Chrome) or the
-   equivalent in Samsung Internet. It'll now open full-screen from an
-   icon like a normal app.
-
-Any other static host works too (Netlify Drop, Cloudflare Pages,
-etc.) -- the only requirement is HTTPS.
+`localhost`) -- not from a plain file on your phone. Push all these
+files to a free static host (GitHub Pages, Netlify Drop, Cloudflare
+Pages -- anything with HTTPS), open that URL in Chrome on your S23,
+then **three-dot menu -> Add to Home screen** so it opens full-screen
+like a normal app.
 
 ## Bluetooth connection: one real unknown to flag
 
 The desktop app (via `bleak`) can freely list *every* Bluetooth
-service on the pad and search all of them for the `ffe1`/`fff1`
-characteristics. Web Bluetooth, for privacy reasons, requires the
-**service UUID** to be named up front before it'll let a page look at
-it -- it won't do a free-for-all scan like `bleak` does.
+service on the pad. Web Bluetooth, for privacy reasons, requires the
+**service UUID** to be named up front -- it won't do a free-for-all
+scan like `bleak` does. Since the original capture didn't record the
+pad's actual service UUID, `app.js` tries a handful of common guesses
+(the usual 128-bit expansions of `ffe0`/`fff0`/`ff00`/`ffb0`, common
+on this family of BLE fitness modules). If Connect can't find the
+characteristics with those guesses, use the **Connection
+troubleshooting** panel on the main screen to paste in the real
+service UUID(s) -- found in a couple of minutes with a free scanner
+app like **nRF Connect** (Play Store): connect to the pad there, open
+its service list, and copy the UUID of whichever service contains
+`ffe1`. I can't test this against your actual pad, so this is the
+most likely thing to need a tweak.
 
-Since the original capture didn't record the pad's actual service
-UUID, `app.js` tries a handful of common guesses first (the usual
-128-bit expansions of `ffe0`/`fff0`/`ff00`/`ffb0`, which is where
-these characteristics live on most BLE fitness-pad modules). If
-Connect can't find the characteristics with those guesses, there's a
-troubleshooting panel on the main screen where you can paste in the
-real service UUID(s), comma-separated. You can find the correct one
-in a couple of minutes with a free BLE scanner app like **nRF
-Connect** (Play Store): connect to the pad there, open its service
-list, and copy the UUID of whichever service contains `ffe1`.
+## Fix (this update): every programme disconnected the pad
 
-I haven't been able to test any of this against your actual pad (I
-don't have access to the hardware), so this connection step is the
-most likely thing to need a tweak on the first real attempt -- if it
-doesn't connect first try, the activity log at the bottom of the
-screen and the troubleshooting field are there for exactly that.
+You were right that the separate programmes page was the cause -- but
+the mechanism is a Bluetooth one, not a UI one. **A Web Bluetooth
+connection lives only inside the JavaScript context of the page that
+opened it.** Tapping a programme used to do `location.href =
+'index.html'` -- a full page navigation -- which destroys that
+JavaScript context completely. There's no such thing as a Bluetooth
+connection that survives a page load, so the pad was silently dropped
+the instant you tapped a programme, before the new page had even
+finished loading. That's why *every* programme triggered it while
+manual Start/Stop on the main screen never did.
+
+**Fixed properly this time**: the programme list is now an overlay
+*inside* `index.html` -- shown and hidden with CSS, never navigated
+to. Tapping "Browse all 25 programmes" slides it over the current
+screen; tapping a programme hides it and starts it directly in the
+same script, so the connection is never touched. `programmes.html` has
+been removed from the app entirely.
+
+Two smaller things from the previous round are still in place and
+still worth having regardless:
+
+- **Serialized writes**: Start, Stop, set-speed, and the background
+  poll all funnel through one queue that waits for each write to
+  settle before the next goes out, since overlapping GATT writes is a
+  separate, real cause of Android BLE disconnects.
+- **Auto-reconnect**: if the pad drops the connection on its own
+  (not from you pressing Disconnect), the app retries up to 4 times
+  and resumes a running programme at the same step and speed.
+- **A connection guard**: starting a programme while not connected
+  now stops immediately with an on-screen alert instead of silently
+  trying and failing.
+
+If it *still* disconnects after this, that would point away from the
+page-navigation bug and toward something else (weak signal, the pad's
+own quirks, or the service-UUID guess being wrong in a way that causes
+an unstable rather than a failed connection) -- send me the activity
+log from the **Connection troubleshooting** panel if so.
+
+## If a fix doesn't seem to take effect
+
+The service worker now caches "network-first" -- every load fetches
+the latest deployed files first, falling back to the cached copy only
+if there's no signal. After deploying an update, fully close the app
+(swipe it away from recent apps) and reopen it once, so the old
+service worker hands off to the new one.
 
 ## Voice control
 
@@ -97,251 +128,96 @@ permission the first time. Recognized phrases:
 - "start" / "stop" (or "pause")
 - "faster" / "speed up", "slower" / "slow down" (±0.5 km/h)
 - "speed five" / "speed five point five" -- sets an exact km/h
-- "programme one" / "programme two" -- starts that preset by number
+- "programme one" through "programme twenty five" -- starts that preset
 - "stop programme" / "cancel programme"
 
-This uses the browser's built-in `SpeechRecognition` (Web Speech API),
-which streams audio to Google's recognition service to work -- it's
-not on-device, so it needs a data connection. Support on Android is
-real but has historically been a bit inconsistent between Chrome
-versions and OEM browsers, so if it doesn't respond, the button will
-say **"Voice unsupported"** and the on-screen buttons/chips still work
-exactly the same either way -- voice is additive, not a replacement.
+This uses the browser's built-in `SpeechRecognition`, which streams
+audio to Google's recognition service to work (needs a data
+connection). Support on Android is real but has historically been
+inconsistent between Chrome versions and OEM browsers -- if it doesn't
+respond, the button says **"Voice unsupported"** and every on-screen
+control still works exactly the same either way.
 
 ## Programmes -- all 25, with spoken encouragement
 
-`programmes.js` now has all 25 programmes, transcribed from the
-programmes array already built into your updated `index.html`. Each
-runs as a sequence of speed/duration segments -- the player sets
-speed at the start of each segment, counts down, advances, and stops
-at the end -- startable from the **Programmes** card or by voice
-("programme one" through "programme twenty five").
+`programmes.js` has all 25 programmes, transcribed from the programmes
+array in your desktop `index.html`. Each runs as a sequence of
+speed/duration segments, startable from the in-page **Programmes**
+overlay or by voice.
 
-At each new segment (after the first) it speaks a short line of
-encouragement plus the segment name and target speed -- e.g. *"Great
-work! Keep up the momentum. Now starting Stage 2 at 6.3 kilometers
-per hour."* -- using the same rotating set of lines as the desktop
-app. It also announces the programme starting and finishing.
+At each new segment it speaks a short line of encouragement plus the
+segment name and target speed -- e.g. *"Great work! Keep up the
+momentum. Now starting Stage 2 at 6.3 kilometers per hour."* -- and
+announces the programme starting and finishing.
 
-**About the "male voice":** this uses the browser's built-in
-`SpeechSynthesis`, not a specific named voice file -- it looks
-through whatever voices Android/Chrome has installed and picks the
-first one that looks like an English male voice (matching "Male",
-"George", "Oliver", "Daniel", or "UK English" in its name), falling
-back to any `en-GB` voice, then any voice at all. Which voices are
-actually available depends on your phone's installed TTS voice
-packs, so the specific voice you hear may differ slightly from your
-Windows machine -- if you want a particular one, check **Settings ->
-General management -> Text-to-speech** on the S23 for which voices
-are installed, and you can ask me to hardcode the match to a
-specific voice name if you tell me which one shows up there.
-
-## Pause, and live programme info -- now matching the desktop app
-
-Two things from your desktop `index.html` that hadn't made it across yet:
-
-- **Pause button**: there's now a three-button row (Start / Pause /
-  Stop). Pause sets speed to 0 and remembers your speed so Resume can
-  restore it, speaks "Walking pad paused." / "Resuming workout.", and
-  -- if a programme is running -- freezes its countdown while paused
-  (same as the desktop version's `isPaused` check) rather than letting
-  it keep counting down with the belt stopped.
-- **Live programme display**: while a programme is running, a
-  prominent dark info box appears above the speed readout showing the
-  programme name, the current step ("Step 3/7: Peak Training (6.4
-  km/h)"), and a large countdown for that step -- the same layout and
-  purpose as `programInfoBox` / `programTitleLine` / `programStepLine`
-  / `programTimeLine` in your desktop version. A **Cancel programme**
-  button sits inside that box.
-
-## If a fix doesn't seem to take effect
-
-The service worker (for offline/home-screen install) used to cache the
-app "cache-first" -- meaning a redeploy of these files could sit on
-GitHub Pages unused while your phone kept running the old cached
-`app.js`, with no error or signal that anything was stale. That's now
-switched to "network-first": every load fetches the latest version
-first and only falls back to the cached copy if there's no signal.
-
-Two things to do once, after this update, so the new behaviour
-actually takes over:
-
-1. Make sure the updated files are actually pushed to wherever you're
-   hosting them (GitHub Pages, etc.) -- redeploying is still a
-   separate step from downloading the zip here.
-2. Fully close the app (swipe it away from recent apps, not just lock
-   the screen) and reopen it once, so the old service worker hands off
-   to the new one. After that, a normal reload will always pick up
-   whatever's actually deployed.
-
-## Fix: starting a programme while not actually connected
-
-Your activity log was telling: it had no "Connecting to...", no "Using
-write=... notify=..." and no "Subscribed to notifications OK" lines
-anywhere in it -- those only appear after a real successful
-connection. Their absence means the pad most likely was never
-actually connected when that programme started. On top of that, the
-app had a real bug: it let you start a programme regardless, so every
-Start/speed command silently did nothing (`Send skipped: not
-connected`), the retry logic dutifully tried and gave up, and the
-programme then got cancelled -- with no clear message telling you
-*why*.
-
-Fixed: starting a programme now checks the connection first. If
-you're not connected, it stops immediately with an on-screen alert
-("You're not connected to the walking pad yet...") instead of
-pretending to start. This applies whether you start from the main
-screen or by picking one on the Programmes page.
-
-Also fixed a related bug: after a disconnect, the app was leaving a
-stale reference to the old (dead) Bluetooth characteristic lying
-around, so a command sent during that window could throw a confusing
-write error instead of a clean "not connected" message. That
-reference is now properly cleared.
-
-**What I can't tell from the log**: whether the pad simply never
-connected in the first place (most likely -- see the service UUID
-point below) or whether it connected and then dropped before you
-picked a programme. If you see the alert next time, that confirms
-it's the former. If your desktop app's `index.html` gives you a hint
-here, or if the top bar shows "Connect" rather than your pad's name
-when this happens, that also confirms it.
-
-**My best guess at the underlying cause**: the guessed BLE service
-UUIDs (see the "one real unknown" section above) probably don't match
-your specific pad, so `connect()` can't find the write/notify
-characteristics and quietly fails. If you haven't already, the
-fastest way to settle this is to grab the pad's real service UUID
-with a scanner app like **nRF Connect** and paste it into the
-Connection troubleshooting field -- that would explain everything
-in this log in one go.
-
-## Fix: disconnecting when a programme starts
-
-The likely cause: several Bluetooth writes were landing close together
-right when a programme starts (Start, then the poll loop still ticking
-every 0.45s in the background, then the first set-speed). Android's
-Bluetooth stack only allows one GATT operation in flight at a time --
-sending a second write before the first has fully settled throws a
-"GATT operation already in progress" error, and on some phones that
-knocks the whole connection over rather than just failing the write.
-Manual button presses are spaced out enough by hand that this rarely
-bites; a programme firing several writes in quick succession is
-exactly the pattern that triggers it.
-
-Two changes:
-
-1. **All writes now go through a single queue.** Start, Stop, set-speed,
-   and the background poll all funnel through one `send()` that waits
-   for each write to fully finish (plus a 30ms buffer) before the next
-   one goes out, instead of potentially overlapping.
-2. **Auto-reconnect.** If the pad drops the connection on its own
-   (rather than you pressing Disconnect), the app now tries to
-   reconnect automatically -- up to 4 attempts with increasing delays
-   -- and if a programme was running, resumes it at the same step and
-   speed rather than losing your progress. You'll see this happening
-   in the activity log ("Connection dropped unexpectedly -- attempting
-   to reconnect...").
-
-I can't test either of these against your actual pad. If it still
-disconnects after this, open the **Connection troubleshooting** panel
-on the main screen, reproduce the issue, and send me what shows up in
-the activity log there -- the exact error text (e.g. whether it says
-"GATT operation already in progress" or something else entirely, like
-a characteristic write timeout) tells me whether this was the right
-fix or whether something else is going on.
-
-## Programmes are now on their own page
-
-Tapping **Browse all 25 programmes** opens `programmes.html` -- a
-full-screen list showing each programme's name, description, step
-count, duration and speed range. Tap one and it returns to the main
-screen and starts that programme automatically.
+**About the "male voice"**: this uses the browser's built-in
+`SpeechSynthesis`, not a specific voice file -- it picks the first
+installed voice that looks like an English male voice (matching
+"Male", "George", "Oliver", "Daniel", or "UK English"), falling back
+to any `en-GB` voice, then any voice at all. Which voices are actually
+available depends on your phone's installed TTS packs (**Settings ->
+General management -> Text-to-speech**) -- tell me the exact name
+that shows up there if you want it hardcoded to a specific one.
 
 ## Fix: first segment used to run at 1 km/h
 
-The pad spins its belt up at its own default (1.0 km/h) when it gets
-a Start, and it ignores a set-speed that arrives in that same instant
--- so the first segment's target speed was being thrown away and you
-were left walking at 1.
+The pad spins its belt up at its own default (1.0 km/h) on Start and
+ignores a set-speed arriving in that same instant. Fixed by sending
+the first set-speed ~1.8s after Start (the info box shows "Starting
+up..." during that gap), plus a retry that checks the pad's reported
+speed and resends up to 4 times if it didn't take -- this also covers
+the manual speed buttons. Can't test the exact timing against your
+pad; if you still see a wrong first speed, tell me and I'll lengthen
+the delay.
 
-Two changes fix it:
+## Pause and live programme info
 
-1. The first set-speed is now sent ~1.8s after Start, once the pad
-   has left its start-up state. The info box shows "Starting up..."
-   during that gap and the segment countdown doesn't begin until the
-   real speed is set, so you don't lose any of the segment.
-2. A new "assured" send checks the pad's own reported speed about a
-   second after any speed change, and resends (up to 4 times) if the
-   pad didn't take it. This also covers the manual speed buttons,
-   which could drop commands the same way.
-
-That said, I can't test this against your actual pad -- 1.8s is my
-estimate of its spin-up time. If you still see a wrong first speed,
-tell me and I'll lengthen it; the retry logic should cover it
-regardless, just a second or two later.
+A three-button row (Start / Pause / Stop). Pause sets speed to 0 and
+remembers your prior speed for Resume, speaks "Walking pad paused." /
+"Resuming workout.", and freezes a running programme's countdown while
+paused. While a programme runs, a dark info box above the speed
+readout shows the programme name, current step ("Step 3/7: Peak
+Training (6.4 km/h)"), and a countdown, with a **Cancel programme**
+button inside it.
 
 ## Galaxy Watch 4 control -- what's possible, honestly
 
 There's no way for a watch app to send commands straight to a web
-page -- a PWA can't be reached from Wear OS directly. Doing it
-"properly" would mean writing a native Wear OS app plus a native
-Android phone app to relay to, which is a different project entirely
-(and needs Android Studio, which I can't run here).
+page -- doing it "properly" needs a native Wear OS app plus a native
+phone app to relay through, a separate project entirely. What's built
+instead uses the route that genuinely exists: your watch can already
+control **media playing on your phone**, and the Media Session API
+lets this page register as that media source.
 
-What I've built instead uses the route that genuinely does exist:
-your watch can already control **media playing on your phone**, and
-the Media Session API lets this page register itself as that media
-and receive the button presses.
+Tap **Watch** in the top bar to enable it. The watch's Media tile then
+becomes a pad remote:
 
-Tap **Watch** in the top bar to enable it. The page then holds a
-silent audio loop (so the phone treats it as a media source) and the
-watch's Media tile becomes a pad remote:
-
-- **Play (>)** -> Start the pad, or Resume if you're mid-pause
-- **Pause (||)** -> Pause the pad (belt to 0; a running programme's
-  countdown freezes rather than ticking on without you)
+- **Play (>)** -> Start, or Resume if paused
+- **Pause (||)** -> Pause (freezes a running programme's countdown)
 - **Previous (|<)** -> Stop, cancelling any running programme
 
-The play/pause icon on the watch stays in step with what the pad is
-actually doing, including when you press Start/Pause/Stop on the
-phone or the pad changes state on its own.
+The play/pause icon stays in sync with the pad's actual state either
+way it changes (phone buttons or the pad itself).
 
-**One thing I can't do**: put the actual words "Start", "Pause" and
-"Stop" on the watch as custom buttons. A web page can only hook the
-*standard* media actions, so the watch shows its usual media icons
-(play, pause, previous) -- I've mapped those to the three pad
-controls, but the labels are the media tile's, not mine. Custom
-labelled buttons would need a native Wear OS app, which is a separate
-build.
+**One real limit**: a web page can only hook the *standard* media
+actions, so the watch shows its usual play/pause/previous icons, not
+custom "Start/Pause/Stop" labels -- that needs a native Wear OS app.
+Next-track is deliberately left unassigned so a stray swipe can't do
+something unexpected mid-walk. Android can also suspend media sessions
+from backgrounded browser tabs, so keeping the PWA in the foreground
+(screen wake-locked anyway) is the reliable setup. If this proves too
+flaky in practice, a cheap Bluetooth remote shutter button clipped to
+the pad is a more reliable fallback -- say the word and I'll wire up
+key-event handling for one.
 
-Previous-track doubles as Stop because not every media tile renders a
-dedicated stop button; next-track is deliberately left unassigned so
-a stray swipe can't do something unexpected mid-walk.
-
-**Other caveats**, since I can't test against your watch:
-
-- Android sometimes suspends media sessions from background browser
-  tabs. Keeping the PWA in the foreground (which you'd be doing
-  anyway, screen wake-locked) is the reliable configuration.
-- If the Media tile doesn't pick this up, check "Show media controls"
-  is enabled for the watch in the Galaxy Wearable app.
-
-Voice control is unchanged and still has its own **Voice** button on
-the phone -- the watch no longer touches it.
-
-If this route turns out too flaky in practice, the honest
-alternative is a cheap Bluetooth remote shutter button (a few pounds)
-clipped to your wrist or the pad handle -- those present as a
-keyboard/media device and are far more reliable than the media-session
-route. Say the word and I'll add key-event handling for one.
+Voice control is unchanged and still has its own **Voice** button --
+the watch doesn't touch it.
 
 ## Screen stays awake mid-walk
 
-Also ported: the desktop app's wake-lock behaviour, so your S23's
-screen won't lock itself while you're mid-programme. It re-requests
-the lock automatically if the tab regains focus after the screen was
-off for another reason.
+The desktop app's wake-lock behaviour is ported over, so the S23's
+screen won't lock itself mid-programme. It re-requests the lock
+automatically if the tab regains focus.
 
 ## Everything else carried over from the desktop app
 
@@ -349,6 +225,6 @@ off for another reason.
   `query_status`, `poll`, `start`, `stop`, `set_speed`) -- byte-for-byte
   identical to `fitshow_protocol.py`
 - Speed/time/distance/calories parsing from the poll replies
-- No step count (the pad doesn't report one, per the original README)
-- No incline control (this unit's incline is fixed)
+- No step count (the pad doesn't report one) and no incline control
+  (this unit's incline is fixed)
 - YouTube video panel, remembers the last video loaded

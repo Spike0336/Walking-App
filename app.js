@@ -470,31 +470,38 @@ const MOTIVATIONAL_QUOTES = [
 // ---- Programmes ---------------------------------------------------------
 
 function renderProgrammeList() {
-  // The full list now lives on programmes.html. This just wires up the
-  // "Browse" button and picks up a choice handed back from that page.
-  $('browseProgrammesBtn').addEventListener('click', () => {
-    location.href = 'programmes.html';
+  const programmes = window.WalkPadProgrammes || [];
+  const list = $('programmeOverlayList');
+
+  list.innerHTML = programmes.map((p, i) => {
+    const totalMin = Math.round(p.segments.reduce((s, seg) => s + seg.duration_s, 0) / 60);
+    const speeds = p.segments.map(s => s.speed_kmh);
+    const range = `${Math.min(...speeds)}\u2013${Math.max(...speeds)} km/h`;
+    return `<div class="prog-card" data-idx="${i}">
+      <div class="prog-num">${i + 1}</div>
+      <div class="prog-body">
+        <div class="prog-name">${p.name}</div>
+        <div class="prog-desc">${p.desc}</div>
+        <div class="prog-steps">${p.segments.length} steps &middot; ${totalMin} min &middot; ${range}</div>
+      </div>
+      <div class="chev">&rsaquo;</div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.prog-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.idx, 10);
+      closeProgrammeOverlay();
+      startProgramme(idx); // same page, same JS context -- the BLE connection is untouched
+    });
   });
 
-  const pending = sessionStorage.getItem('wp_pending_programme');
-  if (pending !== null) {
-    sessionStorage.removeItem('wp_pending_programme');
-    const idx = parseInt(pending, 10);
-    const p = (window.WalkPadProgrammes || [])[idx];
-    if (p) {
-      $('lastProgrammeNote').textContent = `Selected: ${idx + 1}. ${p.name}`;
-      // Give the page (and any reconnect) a moment to settle before firing.
-      setTimeout(() => {
-        if (!state.connected || !state.writeChar) {
-          $('lastProgrammeNote').textContent =
-            `${p.name} selected -- connect to the pad, then tap it again to start.`;
-          return;
-        }
-        startProgramme(idx);
-      }, 600);
-    }
-  }
+  $('browseProgrammesBtn').addEventListener('click', openProgrammeOverlay);
+  $('closeOverlayBtn').addEventListener('click', closeProgrammeOverlay);
 }
+
+function openProgrammeOverlay() { $('programmeOverlay').classList.add('open'); }
+function closeProgrammeOverlay() { $('programmeOverlay').classList.remove('open'); }
 
 function requireConnected() {
   if (state.connected && state.writeChar) return true;
