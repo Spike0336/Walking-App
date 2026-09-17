@@ -154,6 +154,48 @@ Two things from your desktop `index.html` that hadn't made it across yet:
   / `programTimeLine` in your desktop version. A **Cancel programme**
   button sits inside that box.
 
+## Fix: starting a programme while not actually connected
+
+Your activity log was telling: it had no "Connecting to...", no "Using
+write=... notify=..." and no "Subscribed to notifications OK" lines
+anywhere in it -- those only appear after a real successful
+connection. Their absence means the pad most likely was never
+actually connected when that programme started. On top of that, the
+app had a real bug: it let you start a programme regardless, so every
+Start/speed command silently did nothing (`Send skipped: not
+connected`), the retry logic dutifully tried and gave up, and the
+programme then got cancelled -- with no clear message telling you
+*why*.
+
+Fixed: starting a programme now checks the connection first. If
+you're not connected, it stops immediately with an on-screen alert
+("You're not connected to the walking pad yet...") instead of
+pretending to start. This applies whether you start from the main
+screen or by picking one on the Programmes page.
+
+Also fixed a related bug: after a disconnect, the app was leaving a
+stale reference to the old (dead) Bluetooth characteristic lying
+around, so a command sent during that window could throw a confusing
+write error instead of a clean "not connected" message. That
+reference is now properly cleared.
+
+**What I can't tell from the log**: whether the pad simply never
+connected in the first place (most likely -- see the service UUID
+point below) or whether it connected and then dropped before you
+picked a programme. If you see the alert next time, that confirms
+it's the former. If your desktop app's `index.html` gives you a hint
+here, or if the top bar shows "Connect" rather than your pad's name
+when this happens, that also confirms it.
+
+**My best guess at the underlying cause**: the guessed BLE service
+UUIDs (see the "one real unknown" section above) probably don't match
+your specific pad, so `connect()` can't find the write/notify
+characteristics and quietly fails. If you haven't already, the
+fastest way to settle this is to grab the pad's real service UUID
+with a scanner app like **nRF Connect** and paste it into the
+Connection troubleshooting field -- that would explain everything
+in this log in one go.
+
 ## Fix: disconnecting when a programme starts
 
 The likely cause: several Bluetooth writes were landing close together
