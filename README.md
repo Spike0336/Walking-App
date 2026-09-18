@@ -120,6 +120,17 @@ if there's no signal. After deploying an update, fully close the app
 (swipe it away from recent apps) and reopen it once, so the old
 service worker hands off to the new one.
 
+## Programme progress now sits above the video player
+
+The live programme info box (name, current step, countdown) used to
+sit at the very top of the page, above the speed readout -- so
+watching it while a YouTube video played meant scrolling back and
+forth. It's now positioned directly above the **Watch while you walk**
+card instead, so scrolling down to your video keeps your programme
+progress in view right alongside it. It still only appears while a
+programme is actually running (same as before) -- just in a different
+spot in the page.
+
 ## Voice control
 
 Tap **Voice: Off** (top bar) to turn it on -- it'll ask for microphone
@@ -175,7 +186,7 @@ the delay.
 A three-button row (Start / Pause / Stop). Pause sets speed to 0 and
 remembers your prior speed for Resume, speaks "Walking pad paused." /
 "Resuming workout.", and freezes a running programme's countdown while
-paused. While a programme runs, a dark info box above the speed
+paused. While a programme runs, a dark info box above the video player
 readout shows the programme name, current step ("Step 3/7: Peak
 Training (6.4 km/h)"), and a countdown, with a **Cancel programme**
 button inside it.
