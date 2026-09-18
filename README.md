@@ -120,6 +120,36 @@ if there's no signal. After deploying an update, fully close the app
 (swipe it away from recent apps) and reopen it once, so the old
 service worker hands off to the new one.
 
+## Fix: bleeping / video stutter while voice control was on
+
+Two separate things were compounding each other here:
+
+1. **Android's own "listening started" tone.** Chrome for Android
+   doesn't actually honour `continuous: true` reliably -- it silently
+   ends speech recognition every few seconds of quiet, and the app was
+   restarting it *instantly* every time that happened. Each restart
+   re-claims the microphone, which plays Android's own short tone and
+   briefly interrupts whatever else is using audio (your video). Instant,
+   repeated restarts turned that into a near-constant bleep. Fixed by
+   waiting ~0.7s between restarts instead of firing immediately -- this
+   won't eliminate the tone entirely (it's the OS playing it, not
+   something a web page can suppress), but it cuts it down from a loop
+   to an occasional blip, and gives the video's audio a chance to
+   recover between interruptions instead of stuttering continuously.
+
+2. **A genuinely tiny silent audio file.** The **Watch** feature keeps a
+   silent audio loop going so your phone treats the page as "media" the
+   watch can control. That file turned out to be about 0.045
+   *milliseconds* long -- looping many thousands of times a second,
+   which is a real source of glitching on its own. Replaced it with a
+   proper half-second silent clip.
+
+If you still hear anything after this, it'll help to know whether
+**Watch** mode was also switched on at the time -- that's a third
+concurrent audio source (video + mic + watch's silent loop), and
+turning it off while you're just using Voice + video is a reasonable
+thing to try in isolation to narrow it down further.
+
 ## Programme progress now sits above the video player
 
 The live programme info box (name, current step, countdown) used to
