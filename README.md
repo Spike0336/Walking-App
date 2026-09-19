@@ -120,6 +120,32 @@ if there's no signal. After deploying an update, fully close the app
 (swipe it away from recent apps) and reopen it once, so the old
 service worker hands off to the new one.
 
+## Fix: "totally wrong" time/distance/calories stats
+
+Every stat the app shows was already sourced directly from the pad's
+own telemetry (the `time_seconds`/`distance_m`/`calories` fields in
+its status replies) -- nothing was being calculated independently.
+What was missing was any sanity-checking on that data before saving
+it, which is inherited straight from the desktop app's logic. Your
+own `activity_history_backup.json` already had the evidence: five
+sessions claiming average speeds of 20-95 km/h (physically impossible
+on this pad -- your programmes only go up to 7.5 km/h) and one
+zero-distance ten-second entry, all quietly saved as real walks
+because nothing ever checked them. A handful of those in your history
+is enough to badly skew a "Today" or all-time total.
+
+Two changes:
+
+1. **Going forward**, a session only gets saved if it's at least 8
+   seconds long and its average speed is under 15 km/h. Anything
+   outside that gets discarded with a note in the activity log
+   explaining why, rather than silently polluting your history.
+2. **For what's already there**, the dashboard has a new **Clean up
+   bad entries** button. It scans your saved history against the same
+   thresholds, shows you exactly what it wants to remove before doing
+   anything, and only deletes after you confirm. Export a backup first
+   if you want to keep a copy of the untouched history.
+
 ## Fix: bleeping / video stutter while voice control was on
 
 Two separate things were compounding each other here:

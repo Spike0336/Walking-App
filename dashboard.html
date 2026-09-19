@@ -57,6 +57,7 @@
       <button class="primary" id="exportBtn">Export backup (.json)</button>
       <input type="file" id="importInput" accept=".json" style="display:none;">
       <button id="importBtn">Import backup</button>
+      <button id="cleanupBtn">Clean up bad entries</button>
     </div>
     <div id="statusMsg" style="margin-top:8px;">Showing history saved on this phone.</div>
   </div>
@@ -110,6 +111,35 @@
     URL.revokeObjectURL(url);
   });
   $('importBtn').addEventListener('click', () => $('importInput').click());
+
+  // Same thresholds as the live app's finalizeSession() -- catches corrupted
+  // Bluetooth readings (impossible speeds) and telemetry-blip sessions that
+  // got saved before that check existed.
+  const MAX_PLAUSIBLE_SPEED_KMH = 15;
+  const MIN_SESSION_S = 8;
+
+  $('cleanupBtn').addEventListener('click', () => {
+    const before = sessions.length;
+    const bad = [];
+    const kept = sessions.filter(s => {
+      const avgSpeed = s.duration_s > 0 ? (s.distance_m / 1000) / (s.duration_s / 3600) : 0;
+      const isBad = s.duration_s < MIN_SESSION_S || avgSpeed > MAX_PLAUSIBLE_SPEED_KMH;
+      if (isBad) bad.push(s);
+      return !isBad;
+    });
+    if (bad.length === 0) {
+      $('statusMsg').textContent = 'No implausible entries found -- your history looks clean.';
+      return;
+    }
+    const summary = bad.map(s => `${s.date}: ${s.duration_s}s, ${s.distance_m}m`).join('; ');
+    if (!confirm(`Remove ${bad.length} of ${before} sessions that look like corrupted readings (too short, or an impossible speed)?\n\n${summary}\n\nThis can't be undone -- export a backup first if you want to keep a copy.`)) {
+      return;
+    }
+    sessions = kept;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify({ sessions }));
+    render();
+    $('statusMsg').textContent = `Removed ${bad.length} implausible session(s).`;
+  });
   $('importInput').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;

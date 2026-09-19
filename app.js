@@ -310,12 +310,26 @@ function trackSession(status) {
   if (wasRunning !== state.running) syncWatchPlaybackState();
 }
 
+// A mini walking pad tops out well under this -- your programmes only ever
+// go up to 7.5 km/h. Anything reporting faster than this is a corrupted BLE
+// read (a garbled distance or time byte), not a real walk.
+const MAX_PLAUSIBLE_SPEED_KMH = 15;
+// Sessions shorter than this are almost always a brief mode-flicker on the
+// pad's telemetry, not an intentional walk.
+const MIN_SESSION_S = 8;
+
 function finalizeSession() {
   if (state.lastTimeS > 0) {
     const avgSpeed = (state.lastDistanceM / 1000) / (state.lastTimeS / 3600);
-    saveHistorySession(state.sessionDate, state.lastDistanceM, state.lastCalories, state.lastTimeS, avgSpeed);
-    log(`Session saved: ${state.lastDistanceM}m, ${state.lastCalories} kcal, ${state.lastTimeS}s`);
-    renderHistory();
+    if (state.lastTimeS < MIN_SESSION_S) {
+      log(`Session discarded: only ${state.lastTimeS}s -- too short to be a real walk, likely a telemetry blip.`);
+    } else if (avgSpeed > MAX_PLAUSIBLE_SPEED_KMH) {
+      log(`Session discarded: reported ${avgSpeed.toFixed(1)} km/h average -- not physically possible on this pad, likely a corrupted Bluetooth reading. (${state.lastDistanceM}m in ${state.lastTimeS}s)`);
+    } else {
+      saveHistorySession(state.sessionDate, state.lastDistanceM, state.lastCalories, state.lastTimeS, avgSpeed);
+      log(`Session saved: ${state.lastDistanceM}m, ${state.lastCalories} kcal, ${state.lastTimeS}s`);
+      renderHistory();
+    }
   }
   state.sessionActive = false;
   state.sessionDate = null;
