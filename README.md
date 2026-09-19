@@ -120,6 +120,23 @@ if there's no signal. After deploying an update, fully close the app
 (swipe it away from recent apps) and reopen it once, so the old
 service worker hands off to the new one.
 
+## Fix: "Today" figures not syncing with the pad
+
+"Today" was only ever counting *completed* sessions already saved to
+history. While a walk is in progress, the live Time/Distance/Calories
+cards at the top update in step with the pad, but "Today" further down
+stayed frozen at whatever it was before you started -- only catching
+up once you pressed Stop. That's the desync.
+
+Fixed two ways:
+
+1. "Today" now adds in whatever walk is currently in progress, live,
+   on top of the completed sessions already saved -- not just after
+   you stop.
+2. It refreshes on every single update from the pad (same cadence as
+   the live stat cards) instead of on a separate 5-second timer, so it
+   moves in step rather than catching up in occasional jumps.
+
 ## Fix: "totally wrong" time/distance/calories stats
 
 Every stat the app shows was already sourced directly from the pad's

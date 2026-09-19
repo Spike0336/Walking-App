@@ -302,8 +302,9 @@ function trackSession(status) {
     if (status.distanceM != null) state.lastDistanceM = status.distanceM;
     if (status.calories != null) state.lastCalories = status.calories;
     if (status.timeSeconds != null) state.lastTimeS = status.timeSeconds;
+    renderHistory(); // keep "Today" moving in step with the pad's own live readout
   } else if (status.mode === 0 && state.sessionActive) {
-    finalizeSession();
+    finalizeSession(); // this also calls renderHistory()
   }
   const wasRunning = state.running;
   state.running = (status.mode === 3);
@@ -328,14 +329,17 @@ function finalizeSession() {
     } else {
       saveHistorySession(state.sessionDate, state.lastDistanceM, state.lastCalories, state.lastTimeS, avgSpeed);
       log(`Session saved: ${state.lastDistanceM}m, ${state.lastCalories} kcal, ${state.lastTimeS}s`);
-      renderHistory();
     }
   }
+  // Clear the live figures BEFORE recounting "Today" -- otherwise the walk
+  // just saved into history gets added a second time on top of itself,
+  // since renderHistory() would still see sessionActive as true.
   state.sessionActive = false;
   state.sessionDate = null;
   state.lastDistanceM = 0;
   state.lastCalories = 0;
   state.lastTimeS = 0;
+  renderHistory();
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -366,9 +370,17 @@ function renderHistory() {
     byDate[s.date].duration_s += s.duration_s;
   });
   const t = byDate[today] || { distance_m: 0, calories: 0, duration_s: 0 };
-  $('todayDistance').textContent = (t.distance_m / 1000).toFixed(2) + ' km';
-  $('todayTime').textContent = formatTime(t.duration_s);
-  $('todayCalories').textContent = Math.round(t.calories);
+  // Add whatever's happening right now, live -- otherwise "Today" only
+  // reflects walks that have already been stopped and saved, and looks
+  // stuck/out of sync with the pad's own live readout while you're
+  // mid-walk. sessionActive tracks the walk currently in progress (not
+  // yet finalized), so its numbers aren't in `data.sessions` yet.
+  const liveDistance = state.sessionActive ? state.lastDistanceM : 0;
+  const liveCalories = state.sessionActive ? state.lastCalories : 0;
+  const liveDuration = state.sessionActive ? state.lastTimeS : 0;
+  $('todayDistance').textContent = ((t.distance_m + liveDistance) / 1000).toFixed(2) + ' km';
+  $('todayTime').textContent = formatTime(t.duration_s + liveDuration);
+  $('todayCalories').textContent = Math.round(t.calories + liveCalories);
 
   const dates = Object.keys(byDate).filter(d => d !== today).sort().reverse().slice(0, 5);
   const list = $('historyList');
