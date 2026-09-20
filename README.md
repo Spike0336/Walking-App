@@ -204,6 +204,28 @@ progress in view right alongside it. It still only appears while a
 programme is actually running (same as before) -- just in a different
 spot in the page.
 
+## Amazon Music button
+
+A new **Open Amazon Music** button sits under the video panel. Worth
+knowing what this actually does, since it's different from the video
+panel: Amazon Music has no public embed API the way YouTube does (no
+equivalent of an iframe player), so there's no way to play it *inside*
+the app. The button just opens `music.amazon.co.uk` -- Android will
+hand that off to the Amazon Music app automatically if it's installed
+(it's registered as the default handler for that domain), or open the
+web player in a browser tab if it isn't. Either way, playback happens
+in a separate app/tab, not inline here.
+
+One thing to be aware of if you use this alongside **Watch** mode:
+both this app's silent "keep the media session alive" trick and a
+real playing Amazon Music session compete for the same watch media
+tile. Whichever one currently holds Android's audio focus is what your
+watch is likely to show -- so if Amazon Music is actively playing,
+your watch's Play/Pause/Previous may end up controlling *that*
+instead of the walking pad. I haven't been able to test this
+interaction, so if it causes problems in practice, tell me what you
+see happening and I'll look at ways to make the two coexist better.
+
 ## Voice control
 
 Tap **Voice: Off** (top bar) to turn it on -- it'll ask for microphone

@@ -453,6 +453,17 @@ $('browseYoutubeBtn').addEventListener('click', () => {
   window.open('https://www.youtube.com', '_blank');
 });
 
+$('openAmazonMusicBtn').addEventListener('click', () => {
+  // A plain link to music.amazon.co.uk -- Android routes this to the
+  // Amazon Music app automatically if it's installed and registered as
+  // the App Link handler (which it is by default); otherwise it opens
+  // the web player in a browser tab. There's no public embed/SDK for
+  // Amazon Music the way YouTube has an iframe, so this can't play
+  // inline in the app -- it hands off to the app or the website, same
+  // as the YouTube button does for browsing.
+  window.open('https://music.amazon.co.uk', '_blank');
+});
+
 $('loadVideoBtn').addEventListener('click', () => loadVideo($('videoUrlInput').value.trim()));
 $('videoUrlInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadVideo(e.target.value.trim()); });
 
