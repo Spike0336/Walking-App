@@ -90,6 +90,9 @@
   .footer-bar button{padding:9px 10px;font-size:12px;}
 
   .video-input-row{display:flex;gap:8px;}
+  .music-controls{display:flex;gap:8px;margin-top:8px;}
+  .music-controls button{flex:1;padding:12px 0;font-size:18px;}
+  .music-controls button.primary{font-size:16px;}
   .video-input-row input{flex:1;font-family:inherit;font-size:13px;border:1px solid var(--border);
     border-radius:8px;padding:8px 10px;color:var(--ink);}
   .video-frame{position:relative;width:100%;aspect-ratio:16/9;background:#0B0C0E;border-radius:12px;
@@ -216,12 +219,17 @@
   </div>
 
   <div class="card">
-    <div class="card-title">Listen while you walk</div>
-    <button class="primary" id="openAmazonMusicBtn" style="width:100%;padding:13px 0;font-size:14px;">
-      Open Amazon Music &#8599;
-    </button>
-    <div class="hint" style="text-align:center;margin-top:6px;">
-      Opens the Amazon Music app if it's installed, otherwise the web player.
+    <div class="card-title">Play music from your phone</div>
+    <input type="file" id="musicFileInput" accept="audio/*" multiple style="display:none;">
+    <button id="chooseMusicBtn" style="width:100%;">Choose music files</button>
+    <div class="hint" id="musicTrackInfo" style="text-align:center;margin-top:8px;">
+      No music loaded -- pick audio files already saved on your phone.
+    </div>
+    <input type="range" id="musicSeek" min="0" max="1000" value="0" style="width:100%;margin-top:8px;">
+    <div class="music-controls">
+      <button id="musicPrevBtn">&#9198;</button>
+      <button class="primary" id="musicPlayPauseBtn">&#9654;</button>
+      <button id="musicNextBtn">&#9197;</button>
     </div>
   </div>
 

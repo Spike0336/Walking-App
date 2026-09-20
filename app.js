@@ -453,15 +453,51 @@ $('browseYoutubeBtn').addEventListener('click', () => {
   window.open('https://www.youtube.com', '_blank');
 });
 
-$('openAmazonMusicBtn').addEventListener('click', () => {
-  // A plain link to music.amazon.co.uk -- Android routes this to the
-  // Amazon Music app automatically if it's installed and registered as
-  // the App Link handler (which it is by default); otherwise it opens
-  // the web player in a browser tab. There's no public embed/SDK for
-  // Amazon Music the way YouTube has an iframe, so this can't play
-  // inline in the app -- it hands off to the app or the website, same
-  // as the YouTube button does for browsing.
-  window.open('https://music.amazon.co.uk', '_blank');
+// ---- Local music player -- plays audio files already stored on your
+// phone, entirely inside the page (no streaming-service API exists for
+// a web page to reach into Amazon Music, Spotify, etc. -- only into
+// files that actually exist on the device). Deliberately kept separate
+// from the Media Session / Watch feature above: since this plays inside
+// our own page rather than handing off to a separate app, it doesn't
+// compete for Android's system audio-focus slot the way an external
+// app would -- there's only ever one media session, and Watch mode
+// still controls the pad regardless of whether music is loaded.
+let musicFiles = [];
+let musicIndex = -1;
+const musicAudio = new Audio();
+
+function playMusicTrack(idx) {
+  if (idx < 0 || idx >= musicFiles.length) return;
+  musicIndex = idx;
+  musicAudio.src = URL.createObjectURL(musicFiles[idx]);
+  musicAudio.play().catch(e => log('Music playback error: ' + e));
+  $('musicTrackInfo').textContent = `Track ${idx + 1}/${musicFiles.length}: ${musicFiles[idx].name}`;
+}
+
+function updateMusicPlayPauseIcon() {
+  $('musicPlayPauseBtn').innerHTML = musicAudio.paused ? '&#9654;' : '&#9208;';
+}
+
+musicAudio.addEventListener('play', updateMusicPlayPauseIcon);
+musicAudio.addEventListener('pause', updateMusicPlayPauseIcon);
+musicAudio.addEventListener('ended', () => { if (musicIndex + 1 < musicFiles.length) playMusicTrack(musicIndex + 1); });
+musicAudio.addEventListener('timeupdate', () => {
+  if (musicAudio.duration) $('musicSeek').value = (musicAudio.currentTime / musicAudio.duration) * 1000;
+});
+
+$('chooseMusicBtn').addEventListener('click', () => $('musicFileInput').click());
+$('musicFileInput').addEventListener('change', (e) => {
+  musicFiles = Array.from(e.target.files);
+  if (musicFiles.length) playMusicTrack(0);
+});
+$('musicPlayPauseBtn').addEventListener('click', () => {
+  if (musicIndex < 0) { $('musicFileInput').click(); return; } // nothing chosen yet -- open the picker
+  if (musicAudio.paused) musicAudio.play().catch(() => {}); else musicAudio.pause();
+});
+$('musicPrevBtn').addEventListener('click', () => playMusicTrack(musicIndex - 1));
+$('musicNextBtn').addEventListener('click', () => playMusicTrack(musicIndex + 1));
+$('musicSeek').addEventListener('input', () => {
+  if (musicAudio.duration) musicAudio.currentTime = (parseFloat($('musicSeek').value) / 1000) * musicAudio.duration;
 });
 
 $('loadVideoBtn').addEventListener('click', () => loadVideo($('videoUrlInput').value.trim()));

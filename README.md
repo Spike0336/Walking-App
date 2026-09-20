@@ -204,27 +204,43 @@ progress in view right alongside it. It still only appears while a
 programme is actually running (same as before) -- just in a different
 spot in the page.
 
-## Amazon Music button
+## Play music from your phone
 
-A new **Open Amazon Music** button sits under the video panel. Worth
-knowing what this actually does, since it's different from the video
-panel: Amazon Music has no public embed API the way YouTube does (no
-equivalent of an iframe player), so there's no way to play it *inside*
-the app. The button just opens `music.amazon.co.uk` -- Android will
-hand that off to the Amazon Music app automatically if it's installed
-(it's registered as the default handler for that domain), or open the
-web player in a browser tab if it isn't. Either way, playback happens
-in a separate app/tab, not inline here.
+The **Play music from your phone** card plays actual audio files
+stored on your device -- there's no web API that lets a page reach
+into a streaming service's catalog (Amazon Music, Spotify, or
+otherwise), only into files that already exist on the phone. Tap
+**Choose music files**, pick one or more tracks (MP3s or whatever
+you've got saved -- e.g. in your Music or Downloads folder) from the
+system file picker, and it plays them in order with Previous / Play-
+Pause / Next and a seek bar, auto-advancing to the next track when one
+ends.
 
-One thing to be aware of if you use this alongside **Watch** mode:
-both this app's silent "keep the media session alive" trick and a
-real playing Amazon Music session compete for the same watch media
-tile. Whichever one currently holds Android's audio focus is what your
-watch is likely to show -- so if Amazon Music is actively playing,
-your watch's Play/Pause/Previous may end up controlling *that*
-instead of the walking pad. I haven't been able to test this
-interaction, so if it causes problems in practice, tell me what you
-see happening and I'll look at ways to make the two coexist better.
+A few honest limits, since this is genuinely different from a real
+music app:
+
+- **No persistence across reloads.** Browsers can't remember which
+  files you picked once the page closes -- you'll need to choose your
+  tracks again each time you reopen the app. (The video URL box
+  remembers its last link because a URL is just text; an actual audio
+  file can't be saved the same way.)
+- **It's a picker into your phone's files, not your music library.**
+  Depending on your phone, the system file picker may show a "Recent"
+  or "Audio" view, or you may need to browse into a specific folder to
+  find your tracks -- that's Android's file picker behaviour, not
+  something this app controls.
+- **This plays inside the page itself**, unlike the old Amazon Music
+  link, which is actually an improvement for the Watch-conflict issue
+  mentioned before: since there's no separate app involved, it doesn't
+  compete with this page for Android's system audio-focus slot the way
+  Amazon Music's own app would. Watch mode still controls the pad
+  either way.
+- The same mic-vs-playback interaction from the voice-control fix
+  still applies here: if Voice control is also on, the recognizer
+  briefly claiming the microphone can still duck or interrupt whatever
+  audio is playing, music included -- the debounced restart from that
+  fix already reduces how often that happens, but it's not something a
+  web page can eliminate outright.
 
 ## Voice control
 

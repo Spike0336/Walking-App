@@ -1,4 +1,4 @@
-const CACHE_NAME = 'walkingpad-v9';
+const CACHE_NAME = 'walkingpad-v10';
 const ASSETS = [
   './index.html',
   './dashboard.html',
